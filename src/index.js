@@ -1,10 +1,10 @@
 import express from "express"
 import cors from "cors"
 import dotenv from "dotenv"
-import pool from "./config/db.js"
 import errorHandling from "./middlewares/errorHandler.js";
-import userRoutes from "./routes/userRoutes.js";
-import createUserTable from "./data/createUserTable.js";
+import emailVerificationRequestRoutes from "./routes/emailVerificationRequestRoutes.js"
+import swaggerUi from 'swagger-ui-express';
+import swaggerDocument from './swagger/swagger.js';
 
 dotenv.config();
 
@@ -15,24 +15,14 @@ const port = process.env.PORT || 3001;
 app.use(express.json());
 app.use(cors());
 
+// Generate swagger UI:
+app.use('/', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+
 // Routes
-app.use("/api", userRoutes)
+app.use("/api/emailVerificationRequests", emailVerificationRequestRoutes)
 
 // Error Handling
 app.use(errorHandling);
-
-// Initialize User table if necessary
-createUserTable();
-
-// Test Postgres Connection
-app.get("/", async (req, res) => {
-    console.log("Start connection test");
-
-    const result = await pool.query("SELECT current_database()");
-    res.send(`The database name is: ${result.rows[0].current_database}`);
-
-    console.log("End connection test");
-});
 
 // Server running
 app.listen(port, () => {
