@@ -1,0 +1,32 @@
+{
+  "name": "verification-service",
+  "version": "1.0.0",
+  "description": "This repository is the beginning of a simple email and telephone number verification service to be used by public institutions in the Netherlands. We will be aiming to deliver a proof of concept of this codebase in september 2025. After that we will be making some important decisions on how to morph/move/discard this code in favor of something else.",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "nodemon src/index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Worth-NL/verification-service.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Worth-NL/verification-service/issues"
+  },
+  "homepage": "https://github.com/Worth-NL/verification-service#readme",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.1",
+    "express": "^5.1.0",
+    "joi": "^18.0.0",
+    "pg": "^8.16.3"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.10"
+  }
+}
