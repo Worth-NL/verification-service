@@ -27,9 +27,6 @@ jobs:
       - name: Build Next.js app
         run: npm run build
 
-      # Prisma migrations only need DB access, so run them at deploy, not build
-      # This avoids failures when GitHub runners cannot access your Azure DB
-
       - name: Upload artifact for deployment
         uses: actions/upload-artifact@v4
         with:
@@ -58,8 +55,15 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run Prisma Migrations
-        run: npx prisma migrate deploy
+      - name: Run Prisma migrations or init schema
+        run: |
+          if [ -d "prisma/migrations" ] && [ "$(ls -A prisma/migrations)" ]; then
+            echo "▶️ Found migrations, running migrate deploy"
+            npx prisma migrate deploy
+          else
+            echo "⚠️ No migrations found, running db push to initialize schema"
+            npx prisma db push
+          fi
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
