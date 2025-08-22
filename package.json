@@ -4,9 +4,10 @@
   "description": "This repository is the beginning of a simple email and telephone number verification service to be used by public institutions in the Netherlands. We will be aiming to deliver a proof of concept of this codebase in september 2025. After that we will be making some important decisions on how to morph/move/discard this code in favor of something else.",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack",
-    "build": "next build --turbopack",
-    "start": "next start"
+    "dev": "next dev",
+    "build": "next build",
+    "start": "npm run migrate:deploy && next start -p $PORT",
+    "migrate:deploy": "prisma migrate deploy"
   },
   "dependencies": {
     "@prisma/client": "^6.14.0",
