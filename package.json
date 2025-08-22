@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start -p ${PORT:-8080}",
+    "start": "prisma migrate deploy && next start -p $PORT",
     "migrate:deploy": "prisma migrate deploy"
   },
   "dependencies": {
