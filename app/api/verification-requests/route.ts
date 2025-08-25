@@ -42,7 +42,26 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
-        const { email, reference, templateId, apiKey } = body;
+        const {
+            email,
+            reference,
+            templateId = process.env.NOTIFUNL_VERIFICATION_EMAIL_TEMPLATEID,
+            apiKey = process.env.NOTIFYNL_API_KEY
+        } = body;
+
+        if (!templateId) {
+            return new Response(JSON.stringify({ error: "TemplateId is required" }), {
+                status: 400,
+                headers: { "Content-Type": "application/json" },
+            });
+        }
+
+        if (!apiKey) {
+            return new Response(JSON.stringify({ error: "Api Key is required" }), {
+                status: 400,
+                headers: { "Content-Type": "application/json" },
+            });
+        }
 
         if (!email) {
             return new Response(JSON.stringify({ error: "Email is required" }), {
