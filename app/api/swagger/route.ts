@@ -8,7 +8,7 @@ export async function GET() {
             info: {
                 title: "Verification Requests API",
                 description: "API to create and verify email verification requests",
-                version: "0.1.1",
+                version: "0.1.2",
             },
             servers: [{ url: "/api" }],
             paths: {
@@ -22,11 +22,14 @@ export async function GET() {
                                     "application/json": {
                                         schema: {
                                             type: "array",
-                                            items: { $ref: "#/components/schemas/VerificationRequest" },
+                                            items: {
+                                                $ref: "#/components/schemas/VerificationRequest",
+                                            },
                                         },
                                     },
                                 },
                             },
+                            500: { $ref: "#/components/responses/ServerError" },
                         },
                     },
                     post: {
@@ -41,7 +44,7 @@ export async function GET() {
                                             email: {
                                                 type: "string",
                                                 format: "email",
-                                                description: "Email address to verify",
+                                                description: "Email address to verify (required)",
                                             },
                                             reference: {
                                                 type: "string",
@@ -49,7 +52,13 @@ export async function GET() {
                                             },
                                             templateId: {
                                                 type: "string",
-                                                description: "Optional template ID for email",
+                                                description:
+                                                    "Optional template ID for email. Defaults to `NOTIFYNL_VERIFICATION_EMAIL_TEMPLATEID` environment variable.",
+                                            },
+                                            apiKey: {
+                                                type: "string",
+                                                description:
+                                                    "Optional NotifyNL API key. Defaults to `NOTIFYNL_API_KEY` environment variable.",
                                             },
                                         },
                                         required: ["email"],
@@ -69,7 +78,15 @@ export async function GET() {
                                     },
                                 },
                             },
-                            400: { $ref: "#/components/responses/BadRequest" },
+                            400: {
+                                description:
+                                    "Missing required input (email, templateId, or apiKey)",
+                                content: {
+                                    "application/json": {
+                                        schema: { $ref: "#/components/schemas/ErrorResponse" },
+                                    },
+                                },
+                            },
                             500: { $ref: "#/components/responses/ServerError" },
                         },
                     },
