@@ -52,8 +52,7 @@ jobs:
             prisma
             public
             next.config.js
-            *.ts
-            *.js
+            app
 
   deploy:
     runs-on: ubuntu-latest
