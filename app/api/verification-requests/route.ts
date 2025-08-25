@@ -2,51 +2,58 @@ import { PrismaClient } from "@prisma/client";
 import { NextRequest } from "next/server";
 import { randomInt } from "crypto";
 
-const prisma = new PrismaClient();
 const NotifyClient = require("notifications-node-client").NotifyClient;
+const prisma = new PrismaClient();
 
 function generateVerificationCode(): string {
     return String(randomInt(10000, 99999));
 }
 
-async function sendVerificationEmail(email: string, code: string, templateId: string, apiKey: string) {
-    let notifyClient = new NotifyClient("https://api.notifyNL.nl", apiKey);
+async function sendVerificationEmail(
+    email: string,
+    code: string,
+    templateId: string,
+    apiKey: string
+): Promise<void> {
+    const notifyClient = new NotifyClient(apiKey, "https://api.notifynl.nl/");
 
     try {
-        notifyClient
-            .sendEmail(templateId, email, { personalisation: { code: code } }) // Pass options as the third argument (optional)
-            .then((response: any) => console.log(response))
-            .catch((err: any) => console.error(err));
-    }
-    catch (err) {
-        console.error(err);
-
-        if (err instanceof Error) {
-            console.error(err);
-            return new Response(JSON.stringify({ error: err.message }), {
-                status: 500,
-                headers: { "Content-Type": "application/json" },
-            });
-        }
+        await notifyClient.sendEmail(templateId, email, {
+            personalisation: { code },
+        });
+        console.log(`📧 Sent verification code ${code} to ${email}`);
+    } catch (err: unknown) {
+        const error = err as Error;
+        console.error("Failed to send email:", error.message);
+        throw error; // propagate to caller so POST can handle
     }
 }
 
-export async function GET(request: NextRequest) {
-    const requests = await prisma.verificationRequest.findMany();
-
-    return new Response(JSON.stringify(requests), {
-        headers: { "Content-Type": "application/json" },
-    });
+export async function GET(_request: NextRequest): Promise<Response> {
+    try {
+        const requests = await prisma.verificationRequest.findMany();
+        return new Response(JSON.stringify(requests), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+        });
+    } catch (err: unknown) {
+        const error = err as Error;
+        console.error(error);
+        return new Response(JSON.stringify({ error: error.message }), {
+            status: 500,
+            headers: { "Content-Type": "application/json" },
+        });
+    }
 }
 
-export async function POST(request: NextRequest) {
+export async function POST(request: NextRequest): Promise<Response> {
     try {
         const body = await request.json();
         const {
             email,
             reference,
-            templateId = process.env.NOTIFUNL_VERIFICATION_EMAIL_TEMPLATEID,
-            apiKey = process.env.NOTIFYNL_API_KEY
+            templateId = process.env.NOTIFYNL_VERIFICATION_EMAIL_TEMPLATEID,
+            apiKey = process.env.NOTIFYNL_API_KEY,
         } = body;
 
         if (!templateId) {
@@ -87,15 +94,12 @@ export async function POST(request: NextRequest) {
             status: 201,
             headers: { "Content-Type": "application/json" },
         });
-    } catch (err) {
-        console.error(err);
-
-        if (err instanceof Error) {
-            console.error(err);
-            return new Response(JSON.stringify({ error: err.message }), {
-                status: 500,
-                headers: { "Content-Type": "application/json" },
-            });
-        }
+    } catch (err: unknown) {
+        const error = err as Error;
+        console.error(error);
+        return new Response(JSON.stringify({ error: error.message }), {
+            status: 500,
+            headers: { "Content-Type": "application/json" },
+        });
     }
 }
