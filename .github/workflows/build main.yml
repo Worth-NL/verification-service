@@ -22,6 +22,7 @@ jobs:
           node-version: '22.x'
           cache: 'npm'
 
+      # Cache Next.js build
       - name: Cache Next.js build
         uses: actions/cache@v4
         with:
@@ -67,7 +68,16 @@ jobs:
         with:
           name: node-app
 
-      # ✅ Cache Prisma migrations so they only run when changed
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      # ✅ Cache Prisma migrations
       - name: Cache Prisma migrations
         id: prisma-cache
         uses: actions/cache@v4
@@ -77,9 +87,9 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-prisma-
 
-      - name: Run Prisma migrations or init schema
-        if: steps.prisma-cache.outputs.cache-hit != 'true'
+      - name: Run Prisma migrations or initialize schema
         run: |
+          echo "▶️ Running Prisma commands"
           if [ -d "prisma/migrations" ] && [ "$(ls -A prisma/migrations)" ]; then
             echo "▶️ Found migrations, running migrate deploy"
             npx prisma migrate deploy
@@ -91,6 +101,7 @@ jobs:
           fi
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        if: steps.prisma-cache.outputs.cache-hit != 'true'
 
       - name: Login to Azure
         uses: azure/login@v2
