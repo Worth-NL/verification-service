@@ -3,14 +3,32 @@ import { NextRequest } from "next/server";
 import { randomInt } from "crypto";
 
 const prisma = new PrismaClient();
+const NotifyClient = require("notifications-node-client").NotifyClient;
 
 function generateVerificationCode(): string {
-    return String(randomInt(100000, 999999));
+    return String(randomInt(10000, 99999));
 }
 
-async function sendVerificationEmail(email: string, code: string, templateId: string) {
-    // Replace with your email sending service
-    console.log(`📧 Sending code ${code} to ${email}`);
+async function sendVerificationEmail(email: string, code: string, templateId: string, apiKey: string) {
+    let notifyClient = new NotifyClient("https://api.notifyNL.nl", apiKey);
+
+    try {
+        notifyClient
+            .sendEmail(templateId, email, { personalisation: { code: code } }) // Pass options as the third argument (optional)
+            .then((response: any) => console.log(response))
+            .catch((err: any) => console.error(err));
+    }
+    catch (err) {
+        console.error(err);
+
+        if (err instanceof Error) {
+            console.error(err);
+            return new Response(JSON.stringify({ error: err.message }), {
+                status: 500,
+                headers: { "Content-Type": "application/json" },
+            });
+        }
+    }
 }
 
 export async function GET(request: NextRequest) {
@@ -24,7 +42,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
-        const { email, reference, templateId } = body;
+        const { email, reference, templateId, apiKey } = body;
 
         if (!email) {
             return new Response(JSON.stringify({ error: "Email is required" }), {
@@ -44,7 +62,7 @@ export async function POST(request: NextRequest) {
             },
         });
 
-        await sendVerificationEmail(email, code, templateId);
+        await sendVerificationEmail(email, code, templateId, apiKey);
 
         return new Response(JSON.stringify({ requestId: verificationRequest.id }), {
             status: 201,
@@ -52,9 +70,13 @@ export async function POST(request: NextRequest) {
         });
     } catch (err) {
         console.error(err);
-        return new Response(JSON.stringify({ error: "Server error" }), {
-            status: 500,
-            headers: { "Content-Type": "application/json" },
-        });
+
+        if (err instanceof Error) {
+            console.error(err);
+            return new Response(JSON.stringify({ error: err.message }), {
+                status: 500,
+                headers: { "Content-Type": "application/json" },
+            });
+        }
     }
 }

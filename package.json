@@ -13,6 +13,7 @@
     "@prisma/client": "^6.14.0",
     "next": "15.5.0",
     "next-swagger-doc": "^0.4.1",
+    "notifications-node-client": "^8.2.1",
     "react": "^19.1.1",
     "redoc": "^2.5.0"
   },
