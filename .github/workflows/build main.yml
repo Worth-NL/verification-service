@@ -13,16 +13,28 @@ jobs:
       contents: read
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
       - name: Set up Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: '22.x'
           cache: 'npm'
 
+      - name: Cache Next.js build
+        uses: actions/cache@v4
+        with:
+          path: .next/cache
+          key: ${{ runner.os }}-nextjs-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-nextjs-
+
       - name: Install dependencies
         run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate
 
       - name: Build Next.js app
         run: npm run build
@@ -31,7 +43,16 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: node-app
-          path: .
+          path: |
+            .next
+            node_modules
+            package.json
+            package-lock.json
+            prisma
+            public
+            next.config.js
+            *.ts
+            *.js
 
   deploy:
     runs-on: ubuntu-latest
@@ -41,25 +62,29 @@ jobs:
       contents: read
 
     steps:
-      - name: Download artifact
+      - name: Download build artifact
         uses: actions/download-artifact@v4
         with:
           name: node-app
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v3
+      # ✅ Cache Prisma migrations so they only run when changed
+      - name: Cache Prisma migrations
+        id: prisma-cache
+        uses: actions/cache@v4
         with:
-          node-version: '22.x'
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
+          path: .prisma-migrate-cache
+          key: ${{ runner.os }}-prisma-${{ hashFiles('prisma/migrations/**') }}
+          restore-keys: |
+            ${{ runner.os }}-prisma-
 
       - name: Run Prisma migrations or init schema
+        if: steps.prisma-cache.outputs.cache-hit != 'true'
         run: |
           if [ -d "prisma/migrations" ] && [ "$(ls -A prisma/migrations)" ]; then
             echo "▶️ Found migrations, running migrate deploy"
             npx prisma migrate deploy
+            mkdir -p .prisma-migrate-cache
+            echo "migrated" > .prisma-migrate-cache/state
           else
             echo "⚠️ No migrations found, running db push to initialize schema"
             npx prisma db push
