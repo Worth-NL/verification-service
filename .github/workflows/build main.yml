@@ -16,14 +16,13 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # ✅ Install Node.js and cache npm dependencies
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '22.x'
           cache: 'npm'
 
-      # ✅ Cache Next.js build to speed up rebuilds
+      # Cache Next.js build
       - name: Cache Next.js build
         uses: actions/cache@v4
         with:
@@ -32,19 +31,29 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-nextjs-
 
-      # ✅ Install dependencies
+      # Cache node_modules for faster builds
+      - name: Cache node_modules
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-npm-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-npm-
+
+      # Install dependencies if not cached
       - name: Install dependencies
+        if: steps.cache-node_modules.outputs.cache-hit != 'true'
         run: npm ci
 
-      # ✅ Generate Prisma client
+      # Generate Prisma client
       - name: Generate Prisma client
         run: npx prisma generate
 
-      # ✅ Build Next.js app
+      # Build Next.js app
       - name: Build Next.js app
         run: npm run build
 
-      # ✅ Upload artifact including everything needed for server.js start
+      # Upload artifact for deployment (includes node_modules, server.js, and app router)
       - name: Upload artifact for deployment
         uses: actions/upload-artifact@v4
         with:
@@ -57,8 +66,8 @@ jobs:
             prisma
             public
             next.config.js
-            app
             server.js
+            app
 
   deploy:
     runs-on: ubuntu-latest
@@ -68,13 +77,16 @@ jobs:
       contents: read
 
     steps:
-      # ✅ Download build artifact
       - name: Download build artifact
         uses: actions/download-artifact@v4
         with:
           name: node-app
 
-      # ✅ Cache Prisma migrations to avoid rerunning unnecessarily
+      # Ensure Prisma CLI is available by using the downloaded node_modules
+      - name: Verify Prisma CLI
+        run: npx prisma --version
+
+      # Cache Prisma migrations
       - name: Cache Prisma migrations
         id: prisma-cache
         uses: actions/cache@v4
@@ -84,7 +96,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-prisma-
 
-      # ✅ Run Prisma migrations or push schema
+      # Run Prisma migrations or push schema
       - name: Run Prisma migrations or init schema
         if: steps.prisma-cache.outputs.cache-hit != 'true'
         run: |
@@ -100,7 +112,7 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
-      # ✅ Login to Azure
+      # Login to Azure
       - name: Login to Azure
         uses: azure/login@v2
         with:
@@ -108,7 +120,7 @@ jobs:
           tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_B11872507EDA4F2D963A210A94FD4ABD }}
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_1DB82D79155A4634B13DD483FE2D6961 }}
 
-      # ✅ Deploy to Azure Web App
+      # Deploy to Azure Web App
       - name: Deploy to Azure Web App
         id: deploy-to-webapp
         uses: azure/webapps-deploy@v3
