@@ -1,17 +1,19 @@
 {
   "name": "verification-service",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "This repository is the beginning of a simple email and telephone number verification service to be used by public institutions in the Netherlands. We will be aiming to deliver a proof of concept of this codebase in september 2025. After that we will be making some important decisions on how to morph/move/discard this code in favor of something else.",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack",
-    "build": "next build --turbopack",
-    "start": "next start"
+    "dev": "next dev",
+    "build": "next build",
+    "start": "prisma migrate deploy && next start -p $PORT",
+    "migrate:deploy": "prisma migrate deploy"
   },
   "dependencies": {
     "@prisma/client": "^6.14.0",
     "next": "15.5.0",
     "next-swagger-doc": "^0.4.1",
+    "notifications-node-client": "^8.2.1",
     "react": "^19.1.1",
     "redoc": "^2.5.0"
   },
