@@ -110,9 +110,21 @@ jobs:
           tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_B11872507EDA4F2D963A210A94FD4ABD }}
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_1DB82D79155A4634B13DD483FE2D6961 }}
 
+      # Zip artifact before deploy
       - name: Zip artifact
-        run: zip -r node-app.zip .next node_modules package.json package-lock.json prisma public next.config.js server.js app
+        run: |
+          zip -r node-app.zip \
+            .next \
+            node_modules \
+            package.json \
+            package-lock.json \
+            prisma \
+            public \
+            next.config.js \
+            server.js \
+            app
 
+      # Deploy zip
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v3
         with:
