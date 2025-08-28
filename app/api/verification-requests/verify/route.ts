@@ -1,7 +1,5 @@
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
 import { NextRequest } from "next/server";
-
-const prisma = new PrismaClient();
 
 export async function POST(request: NextRequest) {
     try {
@@ -51,9 +49,9 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        await prisma.verificationRequest.update({
+        // ✅ Delete the verification request after successful verification
+        await prisma.verificationRequest.delete({
             where: { id: verificationRequest.id },
-            data: { verified: true },
         });
 
         return new Response(JSON.stringify({ verified: true }), {

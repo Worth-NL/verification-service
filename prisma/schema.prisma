@@ -14,12 +14,14 @@ datasource db {
 }
 
 model VerificationRequest {
-  id           String   @id @default(uuid())
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  code         String?
-  emailAddress String?  @unique
-  verified     Boolean  @default(false)
+  id           String   @id @default(cuid())
+  emailAddress String
   reference    String?  @unique
-  templateId   String?
+  code         String
+  verified     Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @default(now()) @updatedAt
+
+  @@index([reference])
+  @@index([emailAddress])
 }
