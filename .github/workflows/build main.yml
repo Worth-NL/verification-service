@@ -110,11 +110,10 @@ jobs:
           tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_B11872507EDA4F2D963A210A94FD4ABD }}
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_1DB82D79155A4634B13DD483FE2D6961 }}
 
-      # Deploy pre-built app (skip Oryx)
-      - name: Deploy to Azure Web App
+      - name: Deploy pre-built app
         uses: azure/webapps-deploy@v3
         with:
           app-name: 'notifyNL-verification-service'
           slot-name: 'Production'
           package: .
-          scm-do-build-during-deployment: false
+          type: zip
