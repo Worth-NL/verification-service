@@ -114,7 +114,7 @@ jobs:
         run: zip -r node-app.zip .next node_modules package.json package-lock.json prisma public next.config.js server.js app
 
       - name: Deploy to Azure Web App
-        uses: azure/webapps-deploy@v4
+        uses: azure/webapps-deploy@v3
         with:
           app-name: 'notifyNL-verification-service'
           slot-name: 'Production'
