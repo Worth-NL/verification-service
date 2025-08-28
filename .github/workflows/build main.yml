@@ -41,7 +41,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-npm-
 
-      # Install dependencies if not cached
+      # Install dependencies
       - name: Install dependencies
         if: steps.cache-node-modules.outputs.cache-hit != 'true'
         run: npm ci
@@ -54,17 +54,16 @@ jobs:
       - name: Build Next.js app
         run: npm run build
 
-      # Upload artifact including app router, API routes, server.js
+      # Upload artifact including only necessary files
       - name: Upload artifact for deployment
         uses: actions/upload-artifact@v4
         with:
           name: node-app
           path: |
             .next
-            node_modules
+            prisma
             package.json
             package-lock.json
-            prisma
             public
             next.config.js
             server.js
@@ -78,17 +77,17 @@ jobs:
       contents: read
 
     steps:
-      # Download build artifact
+      # Download artifact
       - name: Download build artifact
         uses: actions/download-artifact@v4
         with:
           name: node-app
 
-      # Reinstall dependencies to make Prisma CLI available
+      # Install dependencies
       - name: Install dependencies
         run: npm ci
 
-      # ✅ Ensure database exists
+      # Ensure DB exists
       - name: Ensure database exists
         run: |
           export DB_NAME=$(echo ${{ secrets.DATABASE_URL }} | sed -E 's!.*/([a-zA-Z0-9_-]+)(\?.*)?$!\1!')
@@ -97,11 +96,9 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
-      # ✅ Apply Prisma migrations (fresh DB)
+      # Apply Prisma migrations
       - name: Apply Prisma migrations
-        run: |
-          echo "▶️ Running Prisma migrate deploy"
-          npx prisma migrate deploy
+        run: npx prisma migrate deploy
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
@@ -113,11 +110,11 @@ jobs:
           tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_B11872507EDA4F2D963A210A94FD4ABD }}
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_1DB82D79155A4634B13DD483FE2D6961 }}
 
-      # Deploy to Azure Web App
+      # Deploy pre-built app (skip Oryx)
       - name: Deploy to Azure Web App
-        id: deploy-to-webapp
-        uses: azure/webapps-deploy@v3
+        uses: azure/webapps-deploy@v4
         with:
           app-name: 'notifyNL-verification-service'
           slot-name: 'Production'
           package: .
+          scm-do-build-during-deployment: false
