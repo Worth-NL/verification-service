@@ -15,7 +15,7 @@ async function sendVerificationEmail(
     templateId: string,
     apiKey: string
 ): Promise<void> {
-    const notifyClient = new NotifyClient(apiKey, "https://api.notifynl.nl/");
+    const notifyClient = new NotifyClient("https://api.notifynl.nl/", apiKey);
 
     try {
         await notifyClient.sendEmail(templateId, email, {

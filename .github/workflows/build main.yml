@@ -41,7 +41,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-npm-
 
-      # Install dependencies if not cached
+      # Install dependencies
       - name: Install dependencies
         if: steps.cache-node-modules.outputs.cache-hit != 'true'
         run: npm ci
@@ -54,17 +54,16 @@ jobs:
       - name: Build Next.js app
         run: npm run build
 
-      # Upload artifact including app router, API routes, and server.js
+      # Upload artifact including only necessary files
       - name: Upload artifact for deployment
         uses: actions/upload-artifact@v4
         with:
           name: node-app
           path: |
             .next
-            node_modules
+            prisma
             package.json
             package-lock.json
-            prisma
             public
             next.config.js
             server.js
@@ -78,43 +77,31 @@ jobs:
       contents: read
 
     steps:
-      # Download build artifact
+      # Download artifact
       - name: Download build artifact
         uses: actions/download-artifact@v4
         with:
           name: node-app
 
-      # Reinstall dependencies to make Prisma CLI available
+      # Install dependencies
       - name: Install dependencies
         run: npm ci
 
-      # Cache Prisma migrations
-      - name: Cache Prisma migrations
-        id: prisma-cache
-        uses: actions/cache@v4
-        with:
-          path: .prisma-migrate-cache
-          key: ${{ runner.os }}-prisma-${{ hashFiles('prisma/migrations/**') }}
-          restore-keys: |
-            ${{ runner.os }}-prisma-
-
-      # Run Prisma migrations or push schema
-      - name: Run Prisma migrations or init schema
-        if: steps.prisma-cache.outputs.cache-hit != 'true'
+      # Ensure DB exists
+      - name: Ensure database exists
         run: |
-          if [ -d "prisma/migrations" ] && [ "$(ls -A prisma/migrations)" ]; then
-            echo "▶️ Found migrations, running migrate deploy"
-            npx prisma migrate deploy
-            mkdir -p .prisma-migrate-cache
-            echo "migrated" > .prisma-migrate-cache/state
-          else
-            echo "⚠️ No migrations found, running db push to initialize schema"
-            npx prisma db push
-          fi
+          export DB_NAME=$(echo ${{ secrets.DATABASE_URL }} | sed -E 's!.*/([a-zA-Z0-9_-]+)(\?.*)?$!\1!')
+          export BASE_URL=$(echo ${{ secrets.DATABASE_URL }} | sed -E "s/\/$DB_NAME.*//")
+          psql "$BASE_URL/postgres" -tc "SELECT 1 FROM pg_database WHERE datname = '$DB_NAME'" | grep -q 1 || psql "$BASE_URL/postgres" -c "CREATE DATABASE \"$DB_NAME\""
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
-      # Login to Azure
+      # Apply Prisma migrations
+      - name: Apply Prisma migrations
+        run: npx prisma migrate deploy
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
       - name: Login to Azure
         uses: azure/login@v2
         with:
@@ -122,7 +109,6 @@ jobs:
           tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_B11872507EDA4F2D963A210A94FD4ABD }}
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_1DB82D79155A4634B13DD483FE2D6961 }}
 
-      # Deploy to Azure Web App
       - name: Deploy to Azure Web App
         id: deploy-to-webapp
         uses: azure/webapps-deploy@v3
