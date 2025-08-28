@@ -112,7 +112,7 @@ jobs:
 
       # Deploy pre-built app (skip Oryx)
       - name: Deploy to Azure Web App
-        uses: azure/webapps-deploy@v4
+        uses: azure/webapps-deploy@v3
         with:
           app-name: 'notifyNL-verification-service'
           slot-name: 'Production'
