@@ -2,7 +2,6 @@ const { createServer } = require("http");
 const next = require("next");
 const cron = require("node-cron");
 const { PrismaClient } = require("@prisma/client");
-const { execSync } = require("child_process");
 
 const prisma = new PrismaClient();
 const port = process.env.PORT || 3000;
