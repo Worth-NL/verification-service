@@ -15,7 +15,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Node.js version
+      - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
           node-version: '22.x'
@@ -30,7 +30,7 @@ jobs:
       - name: Generate Prisma client
         run: npx prisma generate
 
-      - name: Upload artifact for deployment job
+      - name: Upload artifact for deployment
         uses: actions/upload-artifact@v4
         with:
           name: node-app
@@ -44,7 +44,7 @@ jobs:
             next.config.js
             app
             lib
-        
+      
       # Ensure DB exists
       - name: Ensure database exists
         run: |
@@ -75,7 +75,6 @@ jobs:
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_1DB82D79155A4634B13DD483FE2D6961 }}
 
       - name: Deploy to Azure Web App
-        id: deploy-to-webapp
         uses: azure/webapps-deploy@v3
         with:
           app-name: 'notifyNL-verification-service'
