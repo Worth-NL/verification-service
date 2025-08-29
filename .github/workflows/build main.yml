@@ -10,7 +10,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
-      contents: read 
+      contents: read
 
     steps:
       - uses: actions/checkout@v4
@@ -36,6 +36,7 @@ jobs:
           name: node-app
           path: |
             .next
+            node_modules
             package.json
             package-lock.json
             prisma
@@ -43,7 +44,15 @@ jobs:
             next.config.js
             app
             lib
-            node_modules
+        
+      # Ensure DB exists
+      - name: Ensure database exists
+        run: |
+          export DB_NAME=$(echo ${{ secrets.DATABASE_URL }} | sed -E 's!.*/([a-zA-Z0-9_-]+)(\?.*)?$!\1!')
+          export BASE_URL=$(echo ${{ secrets.DATABASE_URL }} | sed -E "s/\/$DB_NAME.*//")
+          psql "$BASE_URL/postgres" -tc "SELECT 1 FROM pg_database WHERE datname = '$DB_NAME'" | grep -q 1 || psql "$BASE_URL/postgres" -c "CREATE DATABASE \"$DB_NAME\""
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
   deploy:
     runs-on: ubuntu-latest
@@ -64,18 +73,6 @@ jobs:
           client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_E93E7279BA514AE99AD31854D1FCDF19 }}
           tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_B11872507EDA4F2D963A210A94FD4ABD }}
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_1DB82D79155A4634B13DD483FE2D6961 }}
-
-      - name: Install dependencies on Azure
-        run: npm ci
-
-      # Ensure DB exists
-      - name: Ensure database exists
-        run: |
-          export DB_NAME=$(echo ${{ secrets.DATABASE_URL }} | sed -E 's!.*/([a-zA-Z0-9_-]+)(\?.*)?$!\1!')
-          export BASE_URL=$(echo ${{ secrets.DATABASE_URL }} | sed -E "s/\/$DB_NAME.*//")
-          psql "$BASE_URL/postgres" -tc "SELECT 1 FROM pg_database WHERE datname = '$DB_NAME'" | grep -q 1 || psql "$BASE_URL/postgres" -c "CREATE DATABASE \"$DB_NAME\""
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
       - name: Deploy to Azure Web App
         id: deploy-to-webapp
