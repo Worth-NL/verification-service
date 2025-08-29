@@ -2,7 +2,6 @@ const { createServer } = require("http");
 const next = require("next");
 const cron = require("node-cron");
 const { PrismaClient } = require("@prisma/client");
-const { execSync } = require("child_process");
 
 const prisma = new PrismaClient();
 const port = process.env.PORT || 3000;
@@ -11,14 +10,6 @@ const app = next({ dev });
 const handle = app.getRequestHandler();
 
 async function main() {
-    // ✅ Run Prisma migrations at startup
-    try {
-        console.log("▶️ Running Prisma migrate deploy...");
-        execSync("npx prisma migrate deploy", { stdio: "inherit" });
-    } catch (err) {
-        console.error("⚠️ Prisma migrate deploy failed:", err);
-    }
-
     await app.prepare();
 
     // ✅ Start cron jobs (every 15 minutes)
