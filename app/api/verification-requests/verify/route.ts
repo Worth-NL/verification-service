@@ -51,9 +51,9 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        await prisma.verificationRequest.update({
+        // ✅ Delete the verification request after successful verification
+        await prisma.verificationRequest.delete({
             where: { id: verificationRequest.id },
-            data: { verified: true },
         });
 
         return new Response(JSON.stringify({ verified: true }), {
