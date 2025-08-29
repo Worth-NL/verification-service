@@ -8,7 +8,7 @@ export async function GET() {
             info: {
                 title: "Verification Requests API",
                 description: "API to create and verify email verification requests",
-                version: "0.1.3",
+                version: "0.1.4",
             },
             servers: [{ url: "/api" }],
             paths: {
