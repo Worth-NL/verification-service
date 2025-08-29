@@ -11,14 +11,6 @@ const app = next({ dev });
 const handle = app.getRequestHandler();
 
 async function main() {
-    // ✅ Run Prisma migrations at startup
-    try {
-        console.log("▶️ Running Prisma migrate deploy...");
-        execSync("npx prisma migrate deploy", { stdio: "inherit" });
-    } catch (err) {
-        console.error("⚠️ Prisma migrate deploy failed:", err);
-    }
-
     await app.prepare();
 
     // ✅ Start cron jobs (every 15 minutes)

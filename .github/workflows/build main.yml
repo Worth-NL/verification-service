@@ -76,31 +76,13 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # ✅ Cache Prisma migrations
-      - name: Cache Prisma migrations
-        id: prisma-cache
-        uses: actions/cache@v4
-        with:
-          path: .prisma-migrate-cache
-          key: ${{ runner.os }}-prisma-${{ hashFiles('prisma/migrations/**') }}
-          restore-keys: |
-            ${{ runner.os }}-prisma-
-
-      - name: Run Prisma migrations or initialize schema
+      - name: Reset DB and apply schema
         run: |
-          echo "▶️ Running Prisma commands"
-          if [ -d "prisma/migrations" ] && [ "$(ls -A prisma/migrations)" ]; then
-            echo "▶️ Found migrations, running migrate deploy"
-            npx prisma migrate deploy
-            mkdir -p .prisma-migrate-cache
-            echo "migrated" > .prisma-migrate-cache/state
-          else
-            echo "⚠️ No migrations found, running db push to initialize schema"
-            npx prisma db push
-          fi
+          echo "🆕 Dropping and recreating schema from prisma/schema.prisma"
+          npx prisma db push --force-reset
+          npx prisma generate
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
-        if: steps.prisma-cache.outputs.cache-hit != 'true'
 
       - name: Login to Azure
         uses: azure/login@v2
