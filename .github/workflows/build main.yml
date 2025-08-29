@@ -44,6 +44,7 @@ jobs:
             package-lock.json
             next.config.js
             server.js
+            node_modules
 
   deploy:
     runs-on: ubuntu-latest
