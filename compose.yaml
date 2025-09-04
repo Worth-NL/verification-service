@@ -1,7 +1,42 @@
 services:
-  db: 
-    image: postgres:15-bullseye
+  verification-db:
+    image: postgres:15
     environment:
-      POSTGRES_PASSWORD: 123456
-    ports: 
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: verification
+    ports:
       - "5432:5432"
+    volumes:
+      - verification-db-data:/var/lib/postgresql/data
+
+  verification-service:
+    build:
+      context: .
+      target: app-runtime
+    depends_on:
+      - verification-db
+    environment:
+      DATABASE_HOST: verification-db
+      DATABASE_PORT: 5432
+      DATABASE_URL: postgres://postgres:password@verification-db:5432/verification
+      START_CRON: "false"
+    ports:
+      - "3000:3000"
+    restart: always
+
+  verification-cron:
+    build:
+      context: .
+      target: cron-runtime
+    depends_on:
+      - verification-db
+    environment:
+      DATABASE_HOST: verification-db
+      DATABASE_PORT: 5432
+      DATABASE_URL: postgres://postgres:password@verification-db:5432/verification
+      START_CRON: "true"
+    restart: always
+
+volumes:
+  verification-db-data:
