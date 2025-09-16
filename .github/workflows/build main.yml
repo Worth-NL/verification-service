@@ -60,4 +60,3 @@ jobs:
           app-name: 'notifyNL-verification-service'
           slot-name: 'Production'
           package: .
-          enable-oryx-build: true   # <-- This sets SCM_DO_BUILD_DURING_DEPLOYMENT=true
