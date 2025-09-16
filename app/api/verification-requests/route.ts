@@ -46,43 +46,83 @@ export async function POST(request: NextRequest): Promise<Response> {
         const body = await request.json();
         const {
             email,
+            phoneNumber,
             reference,
-            templateId = process.env.NOTIFYNL_VERIFICATION_EMAIL_TEMPLATEID,
             apiKey = process.env.NOTIFYNL_API_KEY,
         } = body;
 
-        if (!templateId) {
-            return new Response(JSON.stringify({ error: "TemplateId is required" }), { status: 400, headers: { "Content-Type": "application/json" } });
-        }
+        const emailTemplateId = process.env.NOTIFYNL_VERIFICATION_EMAIL_TEMPLATEID;
+        const smsTemplateId = process.env.NOTIFYNL_VERIFICATION_SMS_TEMPLATEID;
+
         if (!apiKey) {
-            return new Response(JSON.stringify({ error: "Api Key is required" }), { status: 400, headers: { "Content-Type": "application/json" } });
+            return new Response(JSON.stringify({ error: "API Key is required" }), {
+                status: 400,
+                headers: { "Content-Type": "application/json" },
+            });
         }
-        if (!email) {
-            return new Response(JSON.stringify({ error: "Email is required" }), { status: 400, headers: { "Content-Type": "application/json" } });
+
+        // Ensure only one of email or phoneNumber is provided
+        if ((email && phoneNumber) || (!email && !phoneNumber)) {
+            return new Response(
+                JSON.stringify({ error: "Provide either email or phoneNumber, not both or neither." }),
+                {
+                    status: 400,
+                    headers: { "Content-Type": "application/json" },
+                }
+            );
         }
 
         const code = String(Math.floor(Math.random() * 90000) + 10000);
 
+        const identifier = email ?? phoneNumber;
+        const usedTemplateId = email ? emailTemplateId : smsTemplateId;
+
+        if (!usedTemplateId) {
+            return new Response(
+                JSON.stringify({ error: "Appropriate templateId is missing in environment variables." }),
+                {
+                    status: 400,
+                    headers: { "Content-Type": "application/json" },
+                }
+            );
+        }
+
         const verificationRequest = await prisma.verificationRequest.upsert({
             where: {
-                // `reference` must be unique in your schema for this to work
-                reference: reference ?? email, // fallback to email if no reference
+                reference: reference ?? identifier,
             },
             update: {
                 code,
                 verified: false,
             },
             create: {
-                emailAddress: email,
+                emailAddress: email ?? null,
+                phoneNumber: phoneNumber ?? null,
                 reference: reference ?? null,
                 code,
                 verified: false,
             },
         });
 
-        await sendVerificationEmail(email, code, templateId, apiKey);
+        const notifyClient = new NotifyClient("https://api.notifynl.nl/", apiKey);
+        try {
+            if (email) {
+                await notifyClient.sendEmail(usedTemplateId, email, {
+                    personalisation: { code },
+                });
+                console.log(`📧 Sent verification code ${code} to ${email}`);
+            } else if (phoneNumber) {
+                await notifyClient.sendSms(usedTemplateId, phoneNumber, {
+                    personalisation: { code },
+                });
+                console.log(`📱 Sent verification code ${code} to ${phoneNumber}`);
+            }
+        } catch (err: unknown) {
+            const error = err as Error;
+            console.error("Failed to send notification:", error.message);
+            throw error;
+        }
 
-        // 201 if newly created, 200 if updated
         const status = verificationRequest.createdAt.getTime() === verificationRequest.updatedAt.getTime() ? 201 : 200;
 
         return new Response(JSON.stringify({ requestId: verificationRequest.id }), {
@@ -93,6 +133,9 @@ export async function POST(request: NextRequest): Promise<Response> {
     } catch (err: unknown) {
         const error = err as Error;
         console.error(error);
-        return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: { "Content-Type": "application/json" } });
+        return new Response(JSON.stringify({ error: error.message }), {
+            status: 500,
+            headers: { "Content-Type": "application/json" },
+        });
     }
 }

@@ -6,7 +6,7 @@ const prisma = new PrismaClient();
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
-        const { email, reference, code } = body;
+        const { email, phoneNumber, reference, code } = body;
 
         if (!code) {
             return new Response(
@@ -15,26 +15,33 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        if (!reference && !email) {
+        if (!reference && !email && !phoneNumber) {
             return new Response(
-                JSON.stringify({ error: "Either reference or email must be provided" }),
+                JSON.stringify({ error: "Either reference, email, or phoneNumber must be provided" }),
                 { status: 400, headers: { "Content-Type": "application/json" } }
             );
         }
 
         let verificationRequest = null;
 
+        // Check by reference first
         if (reference) {
             verificationRequest = await prisma.verificationRequest.findFirst({
                 where: { reference },
             });
         }
 
-        // If not found by reference and email is provided, try email
-        if (!verificationRequest && email) {
-            verificationRequest = await prisma.verificationRequest.findFirst({
-                where: { emailAddress: email },
-            });
+        // If not found by reference, check by email or phone number
+        if (!verificationRequest) {
+            if (email) {
+                verificationRequest = await prisma.verificationRequest.findFirst({
+                    where: { emailAddress: email },
+                });
+            } else if (phoneNumber) {
+                verificationRequest = await prisma.verificationRequest.findFirst({
+                    where: { phoneNumber },
+                });
+            }
         }
 
         if (!verificationRequest) {
@@ -51,7 +58,7 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // ✅ Delete the verification request after successful verification
+        // ✅ Delete the verification request 
         await prisma.verificationRequest.delete({
             where: { id: verificationRequest.id },
         });
