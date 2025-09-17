@@ -90,6 +90,19 @@ export async function POST(request: NextRequest): Promise<Response> {
             );
         }
 
+        const identifier = email ?? phoneNumber;
+        const usedTemplateId = email ? emailTemplateId : smsTemplateId;
+
+        if (!usedTemplateId) {
+            return new Response(
+                JSON.stringify({ error: "Appropriate templateId is missing in environment variables." }),
+                {
+                    status: 400,
+                    headers: { "Content-Type": "application/json" },
+                }
+            );
+        }
+
         const verificationRequest = await prisma.verificationRequest.upsert({
             where: {
                 reference: reference ?? identifier,
