@@ -2,11 +2,10 @@ import { NextResponse } from "next/server";
 
 export async function GET() {
     const spec = {
-
         "openapi": "3.0.0",
         "info": {
             "title": "Verification Requests API",
-            "description": "API to create and verify email verification requests",
+            "description": "API to create and verify email or phone number verification requests",
             "version": "0.1.5"
         },
         "servers": [
@@ -38,7 +37,7 @@ export async function GET() {
                     }
                 },
                 "post": {
-                    "summary": "Create a new verification request",
+                    "summary": "Create a new verification request (email or phone)",
                     "requestBody": {
                         "required": true,
                         "content": {
@@ -49,24 +48,34 @@ export async function GET() {
                                         "email": {
                                             "type": "string",
                                             "format": "email",
-                                            "description": "Email address to verify (required)"
+                                            "description": "Email address to verify"
+                                        },
+                                        "phoneNumber": {
+                                            "type": "string",
+                                            "description": "Phone number to verify (in E.164 format, e.g. +31612345678)"
                                         },
                                         "reference": {
                                             "type": "string",
-                                            "description": "Optional reference ID"
-                                        },
-                                        "templateId": {
-                                            "type": "string",
-                                            "description": "Optional template ID for email. Defaults to `NOTIFYNL_VERIFICATION_EMAIL_TEMPLATEID` environment variable."
+                                            "description": "Optional reference ID (unique identifier)"
                                         },
                                         "apiKey": {
                                             "type": "string",
                                             "description": "Optional NotifyNL API key. Defaults to `NOTIFYNL_API_KEY` environment variable."
+                                        },
+                                        "emailTemplateId": {
+                                            "type": "string",
+                                            "description": "Optional template ID for email. Defaults to `NOTIFYNL_VERIFICATION_EMAIL_TEMPLATEID` environment variable."
+                                        },
+                                        "smsTemplateId": {
+                                            "type": "string",
+                                            "description": "Optional template ID for SMS. Defaults to `NOTIFYNL_VERIFICATION_SMS_TEMPLATEID` environment variable."
                                         }
                                     },
-                                    "required": [
-                                        "email"
-                                    ]
+                                    "oneOf": [
+                                        { "required": ["email"] },
+                                        { "required": ["phoneNumber"] }
+                                    ],
+                                    "description": "You must provide either `email` or `phoneNumber`, but not both."
                                 }
                             }
                         }
@@ -88,7 +97,7 @@ export async function GET() {
                             }
                         },
                         "400": {
-                            "description": "Missing required input (email, templateId, or apiKey)",
+                            "description": "Missing or conflicting input",
                             "content": {
                                 "application/json": {
                                     "schema": {
@@ -119,17 +128,25 @@ export async function GET() {
                                         },
                                         "reference": {
                                             "type": "string",
-                                            "description": "Reference ID (optional, try first)"
+                                            "description": "Reference ID (optional; used first)"
                                         },
                                         "email": {
                                             "type": "string",
                                             "format": "email",
-                                            "description": "Email address (optional, used if reference not found)"
+                                            "description": "Email address (optional fallback if reference not found)"
+                                        },
+                                        "phoneNumber": {
+                                            "type": "string",
+                                            "description": "Phone number (optional fallback if reference and email not found)"
                                         }
                                     },
-                                    "required": [
-                                        "code"
-                                    ]
+                                    "required": ["code"],
+                                    "oneOf": [
+                                        { "required": ["code", "reference"] },
+                                        { "required": ["code", "email"] },
+                                        { "required": ["code", "phoneNumber"] }
+                                    ],
+                                    "description": "You must provide `code` and one of: `reference`, `email`, or `phoneNumber`."
                                 }
                             }
                         }
@@ -151,7 +168,7 @@ export async function GET() {
                             }
                         },
                         "400": {
-                            "description": "Invalid input or code mismatch",
+                            "description": "Invalid code or input",
                             "content": {
                                 "application/json": {
                                     "schema": {
@@ -169,7 +186,7 @@ export async function GET() {
                             }
                         },
                         "404": {
-                            "description": "Request not found",
+                            "description": "Verification request not found",
                             "content": {
                                 "application/json": {
                                     "schema": {
@@ -216,6 +233,9 @@ export async function GET() {
                             "type": "string",
                             "format": "email"
                         },
+                        "phoneNumber": {
+                            "type": "string"
+                        },
                         "verified": {
                             "type": "boolean"
                         },
@@ -256,7 +276,7 @@ export async function GET() {
                 }
             }
         }
-    }
+    };
 
     return NextResponse.json(spec);
 }

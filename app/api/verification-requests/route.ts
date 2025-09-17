@@ -49,19 +49,10 @@ export async function POST(request: NextRequest): Promise<Response> {
             phoneNumber,
             reference,
             apiKey = process.env.NOTIFYNL_API_KEY,
+            templateId, // ← client-supplied override
         } = body;
 
-        const emailTemplateId = process.env.NOTIFYNL_VERIFICATION_EMAIL_TEMPLATEID;
-        const smsTemplateId = process.env.NOTIFYNL_VERIFICATION_SMS_TEMPLATEID;
-
-        if (!apiKey) {
-            return new Response(JSON.stringify({ error: "API Key is required" }), {
-                status: 400,
-                headers: { "Content-Type": "application/json" },
-            });
-        }
-
-        // Ensure only one of email or phoneNumber is provided
+        // Validate exclusive presence
         if ((email && phoneNumber) || (!email && !phoneNumber)) {
             return new Response(
                 JSON.stringify({ error: "Provide either email or phoneNumber, not both or neither." }),
@@ -72,7 +63,32 @@ export async function POST(request: NextRequest): Promise<Response> {
             );
         }
 
+        if (!apiKey) {
+            return new Response(JSON.stringify({ error: "API Key is required" }), {
+                status: 400,
+                headers: { "Content-Type": "application/json" },
+            });
+        }
+
         const code = String(Math.floor(Math.random() * 90000) + 10000);
+        const identifier = email ?? phoneNumber;
+
+        // Resolve template ID
+        const usedTemplateId = email
+            ? templateId ?? process.env.NOTIFYNL_VERIFICATION_EMAIL_TEMPLATEID
+            : templateId ?? process.env.NOTIFYNL_VERIFICATION_SMS_TEMPLATEID;
+
+        if (!usedTemplateId) {
+            return new Response(
+                JSON.stringify({
+                    error: "Appropriate templateId is missing in the request or environment variables.",
+                }),
+                {
+                    status: 400,
+                    headers: { "Content-Type": "application/json" },
+                }
+            );
+        }
 
         const identifier = email ?? phoneNumber;
         const usedTemplateId = email ? emailTemplateId : smsTemplateId;
@@ -105,6 +121,7 @@ export async function POST(request: NextRequest): Promise<Response> {
         });
 
         const notifyClient = new NotifyClient("https://api.notifynl.nl/", apiKey);
+
         try {
             if (email) {
                 await notifyClient.sendEmail(usedTemplateId, email, {
@@ -123,17 +140,19 @@ export async function POST(request: NextRequest): Promise<Response> {
             throw error;
         }
 
-        const status = verificationRequest.createdAt.getTime() === verificationRequest.updatedAt.getTime() ? 201 : 200;
+        const status =
+            verificationRequest.createdAt.getTime() === verificationRequest.updatedAt.getTime()
+                ? 201
+                : 200;
 
         return new Response(JSON.stringify({ requestId: verificationRequest.id }), {
             status,
             headers: { "Content-Type": "application/json" },
         });
-
     } catch (err: unknown) {
         const error = err as Error;
         console.error(error);
-        return new Response(JSON.stringify({ error: error.message }), {
+        return new Response(JSON.stringify({ error: error.message || "Server error" }), {
             status: 500,
             headers: { "Content-Type": "application/json" },
         });
