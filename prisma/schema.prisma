@@ -19,7 +19,7 @@ model VerificationRequest {
   updatedAt    DateTime @updatedAt
   code         String?
   emailAddress String?  @unique
+  phoneNumber  String?  @unique
   verified     Boolean  @default(false)
   reference    String?  @unique
-  templateId   String?
 }
