@@ -6,7 +6,7 @@ export async function GET() {
         "info": {
             "title": "Verification Requests API",
             "description": "API to create and verify email or phone number verification requests",
-            "version": "0.2.0"
+            "version": "0.2.1"
         },
         "servers": [
             {
@@ -62,20 +62,16 @@ export async function GET() {
                                             "type": "string",
                                             "description": "Optional NotifyNL API key. Defaults to `NOTIFYNL_API_KEY` environment variable."
                                         },
-                                        "emailTemplateId": {
+                                        "templateId": {
                                             "type": "string",
-                                            "description": "Optional template ID for email. Defaults to `NOTIFYNL_VERIFICATION_EMAIL_TEMPLATEID` environment variable."
-                                        },
-                                        "smsTemplateId": {
-                                            "type": "string",
-                                            "description": "Optional template ID for SMS. Defaults to `NOTIFYNL_VERIFICATION_SMS_TEMPLATEID` environment variable."
+                                            "description": "Optional NotifyNL template ID (overrides environment variable for email or SMS)"
                                         }
                                     },
                                     "oneOf": [
                                         { "required": ["email"] },
                                         { "required": ["phoneNumber"] }
                                     ],
-                                    "description": "You must provide either `email` or `phoneNumber`, but not both."
+                                    "description": "Provide either `email` or `phoneNumber`, but not both."
                                 }
                             }
                         }
@@ -88,8 +84,9 @@ export async function GET() {
                                     "schema": {
                                         "type": "object",
                                         "properties": {
-                                            "requestId": {
-                                                "type": "string"
+                                            "success": {
+                                                "type": "boolean",
+                                                "example": true
                                             }
                                         }
                                     }

@@ -132,7 +132,7 @@ export async function POST(request: NextRequest): Promise<Response> {
                 ? 201
                 : 200;
 
-        return new Response(JSON.stringify({ requestId: verificationRequest.id }), {
+        return new Response(JSON.stringify({ success: true }), {
             status,
             headers: { "Content-Type": "application/json" },
         });
