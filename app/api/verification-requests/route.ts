@@ -69,6 +69,29 @@ export async function POST(request: NextRequest): Promise<Response> {
                 headers: { "Content-Type": "application/json" },
             });
         }
+<<<<<<< HEAD
+=======
+
+        const code = String(Math.floor(Math.random() * 90000) + 10000);
+        const identifier = email ?? phoneNumber;
+
+        // Resolve template ID
+        const usedTemplateId = email
+            ? templateId ?? process.env.NOTIFYNL_VERIFICATION_EMAIL_TEMPLATEID
+            : templateId ?? process.env.NOTIFYNL_VERIFICATION_SMS_TEMPLATEID;
+
+        if (!usedTemplateId) {
+            return new Response(
+                JSON.stringify({
+                    error: "Appropriate templateId is missing in the request or environment variables.",
+                }),
+                {
+                    status: 400,
+                    headers: { "Content-Type": "application/json" },
+                }
+            );
+        }
+>>>>>>> origin
 
         const code = String(Math.floor(Math.random() * 90000) + 10000);
         const identifier = email ?? phoneNumber;
