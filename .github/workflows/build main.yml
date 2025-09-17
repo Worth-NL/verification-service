@@ -31,10 +31,18 @@ jobs:
         run: |
           export DB_NAME=$(echo ${{ secrets.DATABASE_URL }} | sed -E 's!.*/([a-zA-Z0-9_-]+)(\?.*)?$!\1!')
           export BASE_URL=$(echo ${{ secrets.DATABASE_URL }} | sed -E "s/\/$DB_NAME.*//")
-          echo "Dropping database $DB_NAME (if exists)..."
-          psql "$BASE_URL/postgres" -c "DROP DATABASE IF EXISTS \"$DB_NAME\""
-          echo "Creating database $DB_NAME..."
-          psql "$BASE_URL/postgres" -c "CREATE DATABASE \"$DB_NAME\""
+
+          echo "🔍 Extracted DB_NAME=$DB_NAME"
+          echo "💥 Terminating active connections to $DB_NAME..."
+
+          # Terminate all connections except this one
+          psql "$BASE_URL/postgres" -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '${DB_NAME}' AND pid <> pg_backend_pid();"
+
+          echo "🧨 Dropping database $DB_NAME..."
+          psql "$BASE_URL/postgres" -c "DROP DATABASE IF EXISTS \"$DB_NAME\";"
+
+          echo "📦 Recreating database $DB_NAME..."
+          psql "$BASE_URL/postgres" -c "CREATE DATABASE \"$DB_NAME\";"
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
@@ -42,7 +50,7 @@ jobs:
         run: npx prisma migrate reset --force
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          
+
   deploy:
     runs-on: ubuntu-latest
     needs: build
