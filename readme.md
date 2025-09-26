@@ -5,3 +5,4 @@ This repository is the beginning of a simple email and telephone number verifica
 If someone is running this code in production - please dont.
 
 Please contact [Frank Molenaar](mailto:fmolenaar@worth.systems) for any inquiries surrounding the status of this component.
+For more information or current developments you can also join the Common Ground Slack Channel: #verificatie-service
