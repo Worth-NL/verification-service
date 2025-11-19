@@ -16,7 +16,7 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm ci
 
-# Copy the full source tree
+# Copy the full source tree (post-install)
 COPY . .
 
 # Prisma client generation

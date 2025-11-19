@@ -1,6 +1,6 @@
 {
   "name": "verification-service",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "This repository is the beginning of a simple email and telephone number verification service to be used by public institutions in the Netherlands. We will be aiming to deliver a proof of concept of this codebase in september 2025. After that we will be making some important decisions on how to morph/move/discard this code in favor of something else.",
   "private": true,
   "type": "module",
@@ -9,7 +9,7 @@
     "start": "next start",
     "start:prod": "node dist/dbsetup.js && next start",
     "start:cron": "node dist/cron-task.js",
-    "build": "next build",
+    "build": "next build && tsc -p tsconfig.build.json",
     "migrate:deploy": "prisma migrate deploy"
   },
   "dependencies": {
