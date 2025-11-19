@@ -1,123 +1,93 @@
-# =========================
-# Stage 1: Build
-# =========================
+# ============================================
+# Stage 1: Build (full dependencies)
+# - Installs full deps
+# - Generates Prisma client
+# - Builds TypeScript + Next.js
+# ============================================
 FROM node:22-alpine AS builder
 
-RUN apk add --no-cache python3 make g++ libc6-compat bash postgresql-client
+# System dependencies required for node-gyp, Prisma, etc.
+RUN apk add --no-cache python3 make g++ libc6-compat bash
 
+# Work from the application directory
 WORKDIR /app
 
-# Install dependencies
+# Install full dependency tree (prod + dev)
 COPY package*.json ./
 RUN npm ci
 
-# Copy source
+# Copy the full source tree
 COPY . .
 
-# Generate Prisma client
+# Prisma client generation
 RUN npx prisma generate
 
-# Compile TypeScript
-RUN npx tsc --project tsconfig.build.json
-
-# Build Next.js
+# Run the project build (TS + Next.js)
 RUN npm run build
 
-# =========================
-# Stage 2 base runtime
-# =========================
-FROM node:22-alpine AS runtime-base
 
+# ============================================
+# Stage 2: Runtime (production-only)
+# - Installs only production deps
+# - Receives compiled build output
+# - Shared base for app + cron
+# ============================================
+FROM node:22-alpine AS runtime
+
+# Minimal runtime system utilities
 RUN apk add --no-cache bash postgresql-client
 
 WORKDIR /app
 
-# Copy production dependencies
+# Install only production dependencies
 COPY package*.json ./
 RUN npm ci --only=production
 
-# Copy built files from builder
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/prisma ./prisma
-COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/.next ./.next
+# Copy the compiled output + prisma client + any emitted files
+COPY --from=builder /app ./
 
-# Shared DB wait + migration logic
-ENV DATABASE_HOST=verification-db
-ENV DATABASE_PORT=5432
-ENV DATABASE_URL=""
+# Shared environment defaults
+ENV DATABASE_HOST=localhost \
+    DATABASE_PORT=5432 \
+    DATABASE_URL=""
+
+
+# ============================================
+# Stage 3a: Web Application Service
+# - Starts the normal HTTP server
+# ============================================
+FROM runtime AS app
+
 ENV START_CRON=false
 
-# =========================
-# Stage 2a: App runtime
-# =========================
-FROM runtime-base AS app-runtime
-
-
-# Generate Prisma client
-RUN npx prisma generate
-
-# Compile TypeScript
-RUN npx tsc --project tsconfig.build.json
-
-# Build Next.js
-RUN npm run build
-
-# =========================
-# Stage 2a: App runtime
-# =========================
-FROM node:22-alpine AS app-runtime
-
-RUN apk add --no-cache bash postgresql-client
-
 WORKDIR /app
-
-# Copy production dependencies
-COPY package*.json ./
-RUN npm ci --only=production
-
-# Copy built files from builder
-COPY --from=builder /app/.next ./.next
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/prisma ./prisma
-COPY --from=builder /app/dist ./dist
-
 EXPOSE 3000
 
-# Default command for web service
 CMD ["sh", "-c", "\
-    until pg_isready -h \"${DATABASE_HOST:-verification-db}\" -p \"${DATABASE_PORT:-5432}\" >/dev/null 2>&1; do \
-    echo 'Waiting for database...'; sleep 1; \
+    until pg_isready -h \"$DATABASE_HOST\" -p \"$DATABASE_PORT\" >/dev/null 2>&1; do \
+      echo 'Waiting for database...'; sleep 1; \
     done; \
     echo 'Database ready'; \
     node dist/dbsetup.js; \
     npm run start:prod \
-    "]
+"]
 
-# =========================
-# Stage 2b: Cron runtime
-# =========================
-FROM node:22-alpine AS cron-runtime
 
-RUN apk add --no-cache bash postgresql-client
+# ============================================
+# Stage 3b: Cron Worker Service
+# - Starts the background scheduled job runner
+# ============================================
+FROM runtime AS cron
+
+ENV START_CRON=true
 
 WORKDIR /app
 
-# Copy production dependencies
-COPY package*.json ./
-RUN npm ci --only=production
-
-# Copy built files from builder
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/prisma ./prisma
-COPY --from=builder /app/dist ./dist
-
-# Default command for cron
 CMD ["sh", "-c", "\
-    until pg_isready -h \"${DATABASE_HOST:-verification-db}\" -p \"${DATABASE_PORT:-5432}\" >/dev/null 2>&1; do \
-    echo 'Waiting for database...'; sleep 1; \
+    until pg_isready -h \"$DATABASE_HOST\" -p \"$DATABASE_PORT\" >/dev/null 2>&1; do \
+      echo 'Waiting for database...'; sleep 1; \
     done; \
     echo 'Database ready'; \
     node dist/dbsetup.js; \
     npm run start:cron \
-    "]
+"]
