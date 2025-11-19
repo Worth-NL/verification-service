@@ -15,6 +15,10 @@ jobs:
   image-push-and-release:
     runs-on: ubuntu-latest
 
+    strategy:
+      matrix:
+        docker-target: ["app", "cron"]
+
     permissions:
       contents: read
       packages: write
@@ -24,10 +28,12 @@ jobs:
         with:
           timezoneLinux: "Europe/Amsterdam"
 
+      - uses: actions/checkout@v4
+
       - name: Set tag
         id: set-tag
         run: |
-          TAG=$(date +%Y%m%d).${{ github.run_number }}
+          TAG=$(node -p "require('./package.json').version")
           echo "tag=$TAG" >> $GITHUB_OUTPUT
 
       - uses: docker/login-action@v3
@@ -44,11 +50,13 @@ jobs:
         with:
           file: Dockerfile
           push: true
-          tags: ${{ env.IMAGE }}:latest,${{ env.IMAGE }}:${{ steps.set-tag.outputs.tag }}
+          target: ${{ matrix.docker-target }}
+          tags: ${{ env.IMAGE }}-${{ matrix.docker-target }}:latest,${{ env.IMAGE }}-${{ matrix.docker-target }}:${{ steps.set-tag.outputs.tag }}
           platforms: linux/amd64,linux/arm64
           provenance: false
 
       - uses: softprops/action-gh-release@v2
+        if: matrix.docker-target == 'app'
         with:
           tag_name: ${{ steps.set-tag.outputs.tag }}
           make_latest: true
