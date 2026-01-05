@@ -1,7 +1,7 @@
 import { PrismaClient } from "@prisma/client";
 import { NextRequest } from "next/server";
 
-export function toNenIso8601(date: Date): string {
+function toNenIso8601(date: Date): string {
   const pad = (n: number) => String(n).padStart(2, "0");
 
   const year = date.getFullYear();
