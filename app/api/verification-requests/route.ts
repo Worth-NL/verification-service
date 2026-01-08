@@ -3,6 +3,8 @@ import { NextRequest } from "next/server";
 
 const NotifyClient = require("notifications-node-client").NotifyClient;
 const prisma = new PrismaClient();
+const notifyEndpoint =
+  process.env.NOTIFYNL_ENDPOINT || "https://api.notifynl.nl/";
 
 export async function POST(request: NextRequest): Promise<Response> {
   try {
@@ -73,7 +75,7 @@ export async function POST(request: NextRequest): Promise<Response> {
       },
     });
 
-    const notifyClient = new NotifyClient("https://api.notifynl.nl/", apiKey);
+    const notifyClient = new NotifyClient(notifyEndpoint, apiKey);
 
     try {
       if (email) {
