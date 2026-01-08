@@ -7,7 +7,7 @@ export async function GET() {
       title: "Verification Requests API",
       description:
         "API to create and verify email or phone number verification requests",
-      version: "1.0.0",
+      version: "1.0.1",
     },
     servers: [
       {
