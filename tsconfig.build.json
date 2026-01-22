@@ -8,6 +8,7 @@
     },
     "include": [
         "cron-task.ts",
-        "dbsetup.ts"
+        "dbsetup.ts",
+        "cleanup-task.ts"
     ]
 }
