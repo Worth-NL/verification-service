@@ -11,7 +11,9 @@
     "start:cron": "node dist/cron-task.js",
     "task:cleanup": "node dist/cleanup-task.js",
     "build": "next build && tsc -p tsconfig.build.json",
-    "migrate:deploy": "prisma migrate deploy"
+    "migrate:deploy": "prisma migrate deploy",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@prisma/client": "^6.14.0",
@@ -23,9 +25,10 @@
     "yaml": "^2.8.1"
   },
   "devDependencies": {
-    "@types/node": "^20",
+    "@types/node": "^22",
     "@types/react": "^19",
     "prisma": "^6.14.0",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^3.2.7"
   }
 }
