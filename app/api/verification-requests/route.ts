@@ -1,7 +1,7 @@
 import { PrismaClient } from "@prisma/client";
 import { NextRequest } from "next/server";
+import { NotifyClient } from "notifications-node-client";
 
-const NotifyClient = require("notifications-node-client").NotifyClient;
 const prisma = new PrismaClient();
 const notifyEndpoint =
   process.env.NOTIFYNL_ENDPOINT || "https://api.notifynl.nl/";
