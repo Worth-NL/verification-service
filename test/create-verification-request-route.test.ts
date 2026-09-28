@@ -4,12 +4,12 @@ const { prismaMock, notifyMock, NotifyClientMock } = vi.hoisted(() => {
   const notifyMock = { sendEmail: vi.fn(), sendSms: vi.fn() };
   return {
     notifyMock,
-    NotifyClientMock: vi.fn(() => notifyMock),
+    NotifyClientMock: vi.fn(function () { return notifyMock; }),
     prismaMock: { verificationRequest: { upsert: vi.fn() } },
   };
 });
 
-vi.mock("@prisma/client", () => ({ PrismaClient: vi.fn(() => prismaMock) }));
+vi.mock("@prisma/client", () => ({ PrismaClient: vi.fn(function () { return prismaMock; }) }));
 vi.mock("notifications-node-client", () => ({ NotifyClient: NotifyClientMock }));
 
 import { POST } from "../app/api/verification-requests/route";
