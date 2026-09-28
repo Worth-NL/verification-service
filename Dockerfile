@@ -25,11 +25,15 @@ RUN npx prisma generate
 # Run the project build (TS + Next.js)
 RUN npm run build
 
+# Drop dev dependencies so they don't end up in the runtime image.
+# The generated Prisma client (node_modules/.prisma) and the prisma CLI
+# (a runtime dependency, used by dbsetup) are kept.
+RUN npm prune --omit=dev
+
 
 # ============================================
 # Stage 2: Runtime (production-only)
-# - Installs only production deps
-# - Receives compiled build output
+# - Receives compiled build output + pruned production deps
 # - Shared base for app + cron
 # ============================================
 FROM node:22-alpine AS runtime
@@ -39,11 +43,7 @@ RUN apk add --no-cache bash postgresql-client
 
 WORKDIR /app
 
-# Install only production dependencies
-COPY package*.json ./
-RUN npm ci --only=production
-
-# Copy the compiled output + prisma client + any emitted files
+# Copy the compiled output + production node_modules (incl. prisma client)
 COPY --from=builder /app ./
 
 # Shared environment defaults

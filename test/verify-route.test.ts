@@ -10,7 +10,7 @@ const { prismaMock } = vi.hoisted(() => ({
 }));
 
 vi.mock("@prisma/client", () => ({
-  PrismaClient: vi.fn(() => prismaMock),
+  PrismaClient: vi.fn(function () { return prismaMock; }),
 }));
 
 import { POST } from "../app/api/verification-requests/verify/route";
