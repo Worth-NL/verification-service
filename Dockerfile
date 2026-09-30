@@ -38,8 +38,12 @@ RUN npm prune --omit=dev
 # ============================================
 FROM node:22-alpine AS runtime
 
-# Minimal runtime system utilities
-RUN apk add --no-cache bash postgresql-client
+# Minimal runtime system utilities. npm/npx (and corepack) are removed:
+# nothing needs them at runtime and their bundled dependencies are a
+# recurring source of image-scan findings.
+RUN apk add --no-cache bash postgresql-client \
+    && rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack \
+       /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack
 
 WORKDIR /app
 
@@ -69,7 +73,7 @@ CMD ["sh", "-c", "\
     done; \
     echo 'Database ready'; \
     node dist/dbsetup.js; \
-    npm run start:prod \
+    exec node node_modules/next/dist/bin/next start \
 "]
 
 
@@ -89,5 +93,5 @@ CMD ["sh", "-c", "\
     done; \
     echo 'Database ready'; \
     node dist/dbsetup.js; \
-    npm run start:cron \
+    exec node dist/cron-task.js \
 "]
