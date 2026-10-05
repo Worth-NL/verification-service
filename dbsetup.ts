@@ -1,5 +1,6 @@
 import { PrismaClient } from "@prisma/client";
-import { execSync } from "child_process";
+import { execFileSync } from "child_process";
+import path from "path";
 
 const prisma = new PrismaClient();
 
@@ -13,8 +14,10 @@ async function ensureDatabase() {
         if (tableCheck.length === 0) {
             console.log("🛠 Table 'VerificationRequest' does not exist — applying migrations...");
 
-            // Run Prisma CLI migrate deploy synchronously
-            execSync("npx prisma migrate deploy", { stdio: "inherit" });
+            // Run Prisma CLI migrate deploy synchronously. Invoked via node
+            // directly because the runtime image doesn't ship npm/npx.
+            const prismaCli = path.join(process.cwd(), "node_modules", "prisma", "build", "index.js");
+            execFileSync(process.execPath, [prismaCli, "migrate", "deploy"], { stdio: "inherit" });
 
             console.log("✅ Database is ready.");
         } else {
