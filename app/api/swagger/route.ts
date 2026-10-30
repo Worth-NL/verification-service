@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import packageJson from "@/package.json";
 
 export async function GET() {
   const spec = {
@@ -7,7 +8,7 @@ export async function GET() {
       title: "Verification Requests API",
       description:
         "API to create and verify email or phone number verification requests",
-      version: "1.0.1",
+      version: packageJson.version,
     },
     servers: [
       {
@@ -61,24 +62,27 @@ export async function GET() {
             },
           },
           responses: {
-            "201": {
-              description: "Verification request created",
+            "200": {
+              description:
+                "A verification request for this reference (or email/phone number when no reference is given) already existed; it was updated and a new code was sent",
               content: {
                 "application/json": {
-                  schema: {
-                    type: "object",
-                    properties: {
-                      success: {
-                        type: "boolean",
-                        example: true,
-                      },
-                    },
-                  },
+                  schema: { $ref: "#/components/schemas/SuccessResponse" },
+                },
+              },
+            },
+            "201": {
+              description:
+                "Verification request created and the code was sent",
+              content: {
+                "application/json": {
+                  schema: { $ref: "#/components/schemas/SuccessResponse" },
                 },
               },
             },
             "400": {
-              description: "Missing or conflicting input",
+              description:
+                "Invalid input: both or neither of `email` and `phoneNumber` were given, no API key is available, or no template ID is available for the chosen channel",
               content: {
                 "application/json": {
                   schema: {
@@ -147,37 +151,26 @@ export async function GET() {
               },
             },
             "400": {
-              description: "Invalid code or input",
+              description:
+                "Invalid input or code. Missing `code`, or none of `reference`, `email` or `phoneNumber` given, returns an `ErrorResponse`; an incorrect code returns a `VerificationFailedResponse` with reason `Invalid code`",
               content: {
                 "application/json": {
                   schema: {
-                    type: "object",
-                    properties: {
-                      verified: {
-                        type: "boolean",
-                      },
-                      reason: {
-                        type: "string",
-                      },
-                    },
+                    oneOf: [
+                      { $ref: "#/components/schemas/ErrorResponse" },
+                      { $ref: "#/components/schemas/VerificationFailedResponse" },
+                    ],
                   },
                 },
               },
             },
             "404": {
-              description: "Verification request not found",
+              description:
+                "Verification request not found; returns a `VerificationFailedResponse` with reason `Request not found`",
               content: {
                 "application/json": {
                   schema: {
-                    type: "object",
-                    properties: {
-                      verified: {
-                        type: "boolean",
-                      },
-                      reason: {
-                        type: "string",
-                      },
-                    },
+                    $ref: "#/components/schemas/VerificationFailedResponse",
                   },
                 },
               },
@@ -217,6 +210,24 @@ export async function GET() {
             },
           },
           required: ["verified", "verifiedOn"],
+        },
+        VerificationFailedResponse: {
+          type: "object",
+          properties: {
+            verified: { type: "boolean", example: false },
+            reason: {
+              type: "string",
+              enum: ["Invalid code", "Request not found"],
+            },
+          },
+          required: ["verified", "reason"],
+        },
+        SuccessResponse: {
+          type: "object",
+          properties: {
+            success: { type: "boolean", example: true },
+          },
+          required: ["success"],
         },
         ErrorResponse: {
           type: "object",
