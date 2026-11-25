@@ -1,8 +1,15 @@
 import { PrismaClient } from "@prisma/client";
 import { NextRequest } from "next/server";
 import { toNenIso8601 } from "@/lib/nen-iso-8601";
+import { codesMatch, maxVerifyAttempts } from "@/lib/verification";
 
 const prisma = new PrismaClient();
+
+const notFound = () =>
+  new Response(
+    JSON.stringify({ verified: false, reason: "Request not found" }),
+    { status: 404, headers: { "Content-Type": "application/json" } }
+  );
 
 export async function POST(request: NextRequest) {
   try {
@@ -48,13 +55,29 @@ export async function POST(request: NextRequest) {
     }
 
     if (!verificationRequest) {
-      return new Response(
-        JSON.stringify({ verified: false, reason: "Request not found" }),
-        { status: 404, headers: { "Content-Type": "application/json" } }
-      );
+      return notFound();
     }
 
-    if (verificationRequest.code !== code) {
+    // Use up an attempt before comparing, in a single conditional update, so
+    // concurrent requests can never check more codes than the limit allows.
+    const reserved = await prisma.verificationRequest.updateMany({
+      where: {
+        id: verificationRequest.id,
+        attempts: { lt: maxVerifyAttempts() },
+        expiresAt: { gt: new Date() },
+      },
+      data: { attempts: { increment: 1 } },
+    });
+
+    // Expired, or out of attempts: discard it; a new code has to be requested.
+    if (reserved.count === 0) {
+      await prisma.verificationRequest.deleteMany({
+        where: { id: verificationRequest.id },
+      });
+      return notFound();
+    }
+
+    if (!codesMatch(verificationRequest.code, code)) {
       return new Response(
         JSON.stringify({ verified: false, reason: "Invalid code" }),
         { status: 400, headers: { "Content-Type": "application/json" } }
@@ -62,7 +85,7 @@ export async function POST(request: NextRequest) {
     }
 
     // ✅ Delete the verification request
-    await prisma.verificationRequest.delete({
+    await prisma.verificationRequest.deleteMany({
       where: { id: verificationRequest.id },
     });
 

@@ -1,6 +1,6 @@
 {
   "name": "verification-service",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "description": "This repository is the beginning of a simple email and telephone number verification service to be used by public institutions in the Netherlands. We will be aiming to deliver a proof of concept of this codebase in september 2025. After that we will be making some important decisions on how to morph/move/discard this code in favor of something else.",
   "private": true,
   "type": "module",
@@ -33,6 +33,7 @@
   },
   "overrides": {
     "deepmerge-ts": "^8.0.0",
-    "postcss": "^8.5.28"
+    "postcss": "^8.5.28",
+    "effect": "^3.22.5"
   }
 }

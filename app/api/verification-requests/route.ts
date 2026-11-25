@@ -1,6 +1,7 @@
 import { PrismaClient } from "@prisma/client";
 import { NextRequest } from "next/server";
 import { NotifyClient } from "notifications-node-client";
+import { codeExpiry, generateCode } from "@/lib/verification";
 
 const prisma = new PrismaClient();
 const notifyEndpoint =
@@ -37,8 +38,8 @@ export async function POST(request: NextRequest): Promise<Response> {
       });
     }
 
-    const code = String(Math.floor(Math.random() * 90000) + 10000);
-    const identifier = email ?? phoneNumber;
+    const code = generateCode();
+    const expiresAt = codeExpiry();
 
     // Resolve template ID
     const usedTemplateId = email
@@ -58,13 +59,19 @@ export async function POST(request: NextRequest): Promise<Response> {
       );
     }
 
+    // Match an existing request on the field it was stored under: the
+    // reference when one is given, otherwise the email address or phone number.
     const verificationRequest = await prisma.verificationRequest.upsert({
-      where: {
-        reference: reference ?? identifier,
-      },
+      where: reference
+        ? { reference }
+        : email
+          ? { emailAddress: email }
+          : { phoneNumber },
       update: {
         code,
         verified: false,
+        attempts: 0,
+        expiresAt,
       },
       create: {
         emailAddress: email ?? null,
@@ -72,6 +79,7 @@ export async function POST(request: NextRequest): Promise<Response> {
         reference: reference ?? null,
         code,
         verified: false,
+        expiresAt,
       },
     });
 
@@ -103,13 +111,10 @@ export async function POST(request: NextRequest): Promise<Response> {
       headers: { "Content-Type": "application/json" },
     });
   } catch (err: unknown) {
-    const error = err as Error;
-    return new Response(
-      JSON.stringify({ error: error.message || "Server error" }),
-      {
-        status: 500,
-        headers: { "Content-Type": "application/json" },
-      }
-    );
+    console.error(err);
+    return new Response(JSON.stringify({ error: "Server error" }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
   }
 }

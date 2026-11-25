@@ -64,7 +64,7 @@ export async function GET() {
           responses: {
             "200": {
               description:
-                "A verification request for this reference (or email/phone number when no reference is given) already existed; it was updated and a new code was sent",
+                "A verification request for this reference (or email/phone number when no reference is given) already existed; it was updated and a new code was sent. The previous code no longer works, and the expiry and attempt count start over",
               content: {
                 "application/json": {
                   schema: { $ref: "#/components/schemas/SuccessResponse" },
@@ -73,7 +73,7 @@ export async function GET() {
             },
             "201": {
               description:
-                "Verification request created and the code was sent",
+                "Verification request created and the code was sent. The code is valid for 15 minutes by default (`VERIFICATION_CODE_TTL_MINUTES`)",
               content: {
                 "application/json": {
                   schema: { $ref: "#/components/schemas/SuccessResponse" },
@@ -152,7 +152,7 @@ export async function GET() {
             },
             "400": {
               description:
-                "Invalid input or code. Missing `code`, or none of `reference`, `email` or `phoneNumber` given, returns an `ErrorResponse`; an incorrect code returns a `VerificationFailedResponse` with reason `Invalid code`",
+                "Invalid input or code. Missing `code`, or none of `reference`, `email` or `phoneNumber` given, returns an `ErrorResponse`; an incorrect code returns a `VerificationFailedResponse` with reason `Invalid code`. Each request allows 5 incorrect codes by default (`VERIFICATION_MAX_ATTEMPTS`); after that it is discarded and a new code has to be requested",
               content: {
                 "application/json": {
                   schema: {
@@ -166,7 +166,7 @@ export async function GET() {
             },
             "404": {
               description:
-                "Verification request not found; returns a `VerificationFailedResponse` with reason `Request not found`",
+                "No active verification request: it doesn't exist, has expired, or was discarded after too many incorrect codes. Returns a `VerificationFailedResponse` with reason `Request not found`",
               content: {
                 "application/json": {
                   schema: {

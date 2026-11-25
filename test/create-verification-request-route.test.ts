@@ -99,6 +99,41 @@ describe("POST /api/verification-requests — email happy path", () => {
     expect(notifyMock.sendSms).not.toHaveBeenCalled();
   });
 
+  it("gives a new request a 15-minute expiry", async () => {
+    prismaMock.verificationRequest.upsert.mockResolvedValueOnce(created());
+    const before = Date.now();
+
+    await POST(makeReq({ email: "user@example.com", apiKey: "k", templateId: "t" }));
+
+    const { create } = prismaMock.verificationRequest.upsert.mock.calls[0][0];
+    const ttl = create.expiresAt.getTime() - before;
+    expect(ttl).toBeGreaterThanOrEqual(15 * 60_000);
+    expect(ttl).toBeLessThan(15 * 60_000 + 5_000);
+  });
+
+  it("restarts the expiry and attempt count when a code is re-sent", async () => {
+    prismaMock.verificationRequest.upsert.mockResolvedValueOnce(updated());
+
+    await POST(makeReq({ email: "user@example.com", apiKey: "k", templateId: "t" }));
+
+    const { update, create } = prismaMock.verificationRequest.upsert.mock.calls[0][0];
+    expect(update.attempts).toBe(0);
+    expect(update.expiresAt).toEqual(create.expiresAt);
+  });
+
+  it("honours VERIFICATION_CODE_TTL_MINUTES", async () => {
+    vi.stubEnv("VERIFICATION_CODE_TTL_MINUTES", "5");
+    prismaMock.verificationRequest.upsert.mockResolvedValueOnce(created());
+    const before = Date.now();
+
+    await POST(makeReq({ email: "user@example.com", apiKey: "k", templateId: "t" }));
+
+    const { create } = prismaMock.verificationRequest.upsert.mock.calls[0][0];
+    const ttl = create.expiresAt.getTime() - before;
+    expect(ttl).toBeGreaterThanOrEqual(5 * 60_000);
+    expect(ttl).toBeLessThan(5 * 60_000 + 5_000);
+  });
+
   it("returns 200 when the record already existed (updatedAt moved on)", async () => {
     prismaMock.verificationRequest.upsert.mockResolvedValueOnce(updated());
     const res = await POST(
@@ -107,18 +142,23 @@ describe("POST /api/verification-requests — email happy path", () => {
     expect(res.status).toBe(200);
   });
 
-  it("keys the upsert on reference when supplied, else on the identifier", async () => {
+  it("keys the upsert on reference when supplied, else on the stored email or phone number", async () => {
     prismaMock.verificationRequest.upsert.mockResolvedValue(created());
 
     await POST(makeReq({ email: "user@example.com", apiKey: "k", templateId: "t" }));
     expect(prismaMock.verificationRequest.upsert.mock.calls[0][0].where).toEqual({
-      reference: "user@example.com",
+      emailAddress: "user@example.com",
+    });
+
+    await POST(makeReq({ phoneNumber: "+31612345678", apiKey: "k", templateId: "t" }));
+    expect(prismaMock.verificationRequest.upsert.mock.calls[1][0].where).toEqual({
+      phoneNumber: "+31612345678",
     });
 
     await POST(
       makeReq({ email: "user@example.com", reference: "ref-9", apiKey: "k", templateId: "t" })
     );
-    expect(prismaMock.verificationRequest.upsert.mock.calls[1][0].where).toEqual({
+    expect(prismaMock.verificationRequest.upsert.mock.calls[2][0].where).toEqual({
       reference: "ref-9",
     });
   });
@@ -179,7 +219,8 @@ describe("POST /api/verification-requests — configuration resolution", () => {
 });
 
 describe("POST /api/verification-requests — failure handling", () => {
-  it("500s with the underlying message when NotifyNL rejects", async () => {
+  it("500s with a generic message when NotifyNL rejects, and logs the cause", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
     prismaMock.verificationRequest.upsert.mockResolvedValueOnce(created());
     notifyMock.sendEmail.mockRejectedValueOnce(new Error("Notify 403"));
 
@@ -188,14 +229,17 @@ describe("POST /api/verification-requests — failure handling", () => {
     );
 
     expect(res.status).toBe(500);
-    expect(await res.json()).toEqual({ error: "Notify 403" });
+    expect(await res.json()).toEqual({ error: "Server error" });
+    expect(log).toHaveBeenCalledWith(expect.objectContaining({ message: "Notify 403" }));
   });
 
-  it("500s when the datastore rejects", async () => {
+  it("500s with a generic message when the datastore rejects", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
     prismaMock.verificationRequest.upsert.mockRejectedValueOnce(new Error("db"));
     const res = await POST(
       makeReq({ email: "user@example.com", apiKey: "k", templateId: "t" })
     );
     expect(res.status).toBe(500);
+    expect(await res.json()).toEqual({ error: "Server error" });
   });
 });

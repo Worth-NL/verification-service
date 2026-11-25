@@ -37,9 +37,8 @@ async function startCron() {
 
     cron.schedule("*/15 * * * *", async () => {
         try {
-            const cutoff = new Date(Date.now() - 14 * 60 * 1000); // 14 minutes ago
             const result = await prisma.verificationRequest.deleteMany({
-                where: { createdAt: { lt: cutoff } },
+                where: { expiresAt: { lt: new Date() } },
             });
             console.log(`🧹 Deleted ${result.count} expired verification requests`);
         } catch (err) {
