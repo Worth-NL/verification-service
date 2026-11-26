@@ -14,16 +14,20 @@ datasource db {
 }
 
 model VerificationRequest {
-  id           String   @id @default(uuid())
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  code         String?
-  emailAddress String?  @unique
-  phoneNumber  String?  @unique
-  verified     Boolean  @default(false)
-  reference    String?  @unique
-  attempts     Int      @default(0)
-  // The app always sets this; the default keeps older releases (which don't)
-  // working against this schema, e.g. after a rollback.
-  expiresAt    DateTime @default(dbgenerated("(now() + '00:15:00'::interval)"))
+  id              String   @id @default(uuid())
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  code            String?
+  emailAddress    String?  @unique
+  phoneNumber     String?  @unique
+  verified        Boolean  @default(false)
+  reference       String?  @unique
+  attempts        Int      @default(0)
+  // The app always sets these; the defaults keep older releases (which don't)
+  // working against this schema, e.g. after a rollback. They are in UTC, the
+  // way Prisma reads these columns, whatever the session time zone.
+  expiresAt       DateTime @default(dbgenerated("((now() AT TIME ZONE 'utc'::text) + '00:15:00'::interval)"))
+  lastSentAt      DateTime @default(dbgenerated("(now() AT TIME ZONE 'utc'::text)"))
+  sendCount       Int      @default(1)
+  sendWindowStart DateTime @default(dbgenerated("(now() AT TIME ZONE 'utc'::text)"))
 }

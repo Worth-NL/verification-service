@@ -53,6 +53,33 @@ describe("POST /api/verification-requests/verify — input and lookup", () => {
     });
   });
 
+  it.each([
+    ["reference", { reference: { contains: "" } }],
+    ["email", { email: { contains: "@" } }],
+    ["phoneNumber", { phoneNumber: { startsWith: "+31" } }],
+    ["email", { email: ["user@example.com"] }],
+  ])("400s when %s is not a string, without querying", async (field, extra) => {
+    const res = await POST(makeReq({ code: "12345", ...extra }));
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: `${field} must be a non-empty string` });
+    expect(prismaMock.verificationRequest.findFirst).not.toHaveBeenCalled();
+  });
+
+  it("400s when the body is not a JSON object or not JSON", async () => {
+    for (const body of [null, [], "text"]) {
+      const res = await POST(makeReq(body));
+      expect(res.status).toBe(400);
+      expect(await res.json()).toEqual({ error: "Request body must be a JSON object" });
+    }
+    const res = await POST({
+      json: async () => { throw new SyntaxError("Unexpected token"); },
+    } as unknown as import("next/server").NextRequest);
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "Request body must be valid JSON" });
+    expect(prismaMock.verificationRequest.findFirst).not.toHaveBeenCalled();
+  });
+
   it("looks up by reference first and does not fall back when found", async () => {
     prismaMock.verificationRequest.findFirst.mockResolvedValueOnce(record);
 
@@ -152,7 +179,7 @@ describe("POST /api/verification-requests/verify — attempts and expiry", () =>
     ).toEqual({ lt: 5 });
   });
 
-  it("discards the request and 404s when it is out of attempts or expired", async () => {
+  it("404s without deleting when it is out of attempts or expired", async () => {
     prismaMock.verificationRequest.findFirst.mockResolvedValueOnce(record);
     prismaMock.verificationRequest.updateMany.mockResolvedValueOnce({ count: 0 });
 
@@ -164,9 +191,9 @@ describe("POST /api/verification-requests/verify — attempts and expiry", () =>
       verified: false,
       reason: "Request not found",
     });
-    expect(prismaMock.verificationRequest.deleteMany).toHaveBeenCalledWith({
-      where: { id: "rec-1" },
-    });
+    // The request stays for the cleanup job, so its send limit keeps counting
+    // and a resend made in the meantime isn't thrown away.
+    expect(prismaMock.verificationRequest.deleteMany).not.toHaveBeenCalled();
   });
 
   it("400s and keeps the request when the code does not match", async () => {
@@ -183,23 +210,35 @@ describe("POST /api/verification-requests/verify — attempts and expiry", () =>
     expect(prismaMock.verificationRequest.deleteMany).not.toHaveBeenCalled();
   });
 
-  it("rejects a code that isn't a string, even if it has the same digits", async () => {
-    prismaMock.verificationRequest.findFirst.mockResolvedValueOnce(record);
-
+  it("400s on a code that isn't a string, without using an attempt", async () => {
     const res = await POST(makeReq({ code: 12345, reference: "ref-1" }));
 
     expect(res.status).toBe(400);
-    expect(await res.json()).toEqual({ verified: false, reason: "Invalid code" });
+    expect(await res.json()).toEqual({ error: "code must be a non-empty string" });
+    expect(prismaMock.verificationRequest.findFirst).not.toHaveBeenCalled();
   });
 
-  it("deletes the request and returns verifiedOn on success", async () => {
+  it("deletes the request, for the code that was checked, on success", async () => {
     prismaMock.verificationRequest.findFirst.mockResolvedValueOnce(record);
 
     const res = await POST(makeReq({ code: "12345", reference: "ref-1" }));
 
     expect(res.status).toBe(200);
     expect(prismaMock.verificationRequest.deleteMany).toHaveBeenCalledWith({
-      where: { id: "rec-1" },
+      where: { id: "rec-1", code: "12345" },
+    });
+  });
+
+  it("404s when a parallel call used the code first, or it was replaced", async () => {
+    prismaMock.verificationRequest.findFirst.mockResolvedValueOnce(record);
+    prismaMock.verificationRequest.deleteMany.mockResolvedValueOnce({ count: 0 });
+
+    const res = await POST(makeReq({ code: "12345", reference: "ref-1" }));
+
+    expect(res.status).toBe(404);
+    expect(await res.json()).toEqual({
+      verified: false,
+      reason: "Request not found",
     });
   });
 

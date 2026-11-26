@@ -1,7 +1,7 @@
 import { PrismaClient } from "@prisma/client";
 import { NextRequest } from "next/server";
 import { toNenIso8601 } from "@/lib/nen-iso-8601";
-import { codesMatch, maxVerifyAttempts } from "@/lib/verification";
+import { codesMatch, invalidInput, maxVerifyAttempts } from "@/lib/verification";
 
 const prisma = new PrismaClient();
 
@@ -13,7 +13,26 @@ const notFound = () =>
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
+    let body;
+    try {
+      body = await request.json();
+    } catch {
+      return new Response(
+        JSON.stringify({ error: "Request body must be valid JSON" }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
+    }
+    const inputError = invalidInput(
+      body,
+      ["code", "reference", "email", "phoneNumber"],
+      ["reference"]
+    );
+    if (inputError) {
+      return new Response(JSON.stringify({ error: inputError }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
     const { email, phoneNumber, reference, code } = body;
 
     if (!code) {
@@ -69,11 +88,9 @@ export async function POST(request: NextRequest) {
       data: { attempts: { increment: 1 } },
     });
 
-    // Expired, or out of attempts: discard it; a new code has to be requested.
+    // Expired, or out of attempts: a new code has to be requested. The request
+    // itself stays (the cleanup job removes it) so its send limit keeps counting.
     if (reserved.count === 0) {
-      await prisma.verificationRequest.deleteMany({
-        where: { id: verificationRequest.id },
-      });
       return notFound();
     }
 
@@ -84,10 +101,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // ✅ Delete the verification request
-    await prisma.verificationRequest.deleteMany({
-      where: { id: verificationRequest.id },
+    // A code works once: only the call that deletes the request succeeds. The
+    // code condition also refuses a code that was replaced in the meantime.
+    const consumed = await prisma.verificationRequest.deleteMany({
+      where: { id: verificationRequest.id, code: verificationRequest.code },
     });
+    if (consumed.count !== 1) {
+      return notFound();
+    }
 
     const verifiedOn = toNenIso8601(new Date());
 

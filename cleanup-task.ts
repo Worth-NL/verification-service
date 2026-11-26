@@ -31,7 +31,12 @@ async function waitForDatabase() {
 async function startCron() {
     try {
         const result = await prisma.verificationRequest.deleteMany({
-            where: { expiresAt: { lt: new Date() } },
+            // Keep a request until its code has expired and its hour-long send
+            // window (lib/verification.ts SEND_WINDOW_MS) has ended, so the send limit holds.
+            where: {
+                expiresAt: { lt: new Date() },
+                sendWindowStart: { lt: new Date(Date.now() - 60 * 60_000) },
+            },
         });
         console.log(`🧹 Deleted ${result.count} expired verification requests`);
     } catch (err) {

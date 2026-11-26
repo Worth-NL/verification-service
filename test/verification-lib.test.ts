@@ -12,7 +12,9 @@ import {
   codeExpiry,
   codesMatch,
   generateCode,
+  invalidInput,
   maxVerifyAttempts,
+  nextSend,
 } from "../lib/verification";
 
 beforeEach(() => {
@@ -59,5 +61,69 @@ describe("configuration", () => {
   it.each(["0", "-1", "2.5", "abc", ""])("ignores invalid value %j", (value) => {
     vi.stubEnv("VERIFICATION_MAX_ATTEMPTS", value);
     expect(maxVerifyAttempts()).toBe(5);
+  });
+});
+
+describe("nextSend", () => {
+  const now = new Date("2026-01-01T12:00:00Z");
+  const ago = (seconds: number) => new Date(now.getTime() - seconds * 1000);
+
+  it("refuses within the 60-second cooldown and says how long to wait", () => {
+    const state = { lastSentAt: ago(45), sendCount: 1, sendWindowStart: ago(45) };
+    expect(nextSend(state, now)).toEqual({ ok: false, retryAfter: 15 });
+  });
+
+  it("allows a send once the cooldown is over and counts it", () => {
+    const state = { lastSentAt: ago(60), sendCount: 3, sendWindowStart: ago(600) };
+    expect(nextSend(state, now)).toEqual({
+      ok: true,
+      next: { lastSentAt: now, sendCount: 4, sendWindowStart: ago(600) },
+    });
+  });
+
+  it("refuses the 13th send within the hour until the hour is over", () => {
+    const state = { lastSentAt: ago(120), sendCount: 12, sendWindowStart: ago(50 * 60) };
+    expect(nextSend(state, now)).toEqual({ ok: false, retryAfter: 10 * 60 });
+  });
+
+  it("starts a new window after an hour", () => {
+    const state = { lastSentAt: ago(120), sendCount: 12, sendWindowStart: ago(60 * 60) };
+    expect(nextSend(state, now)).toEqual({
+      ok: true,
+      next: { lastSentAt: now, sendCount: 1, sendWindowStart: now },
+    });
+  });
+
+  it("honours VERIFICATION_RESEND_COOLDOWN_SECONDS and VERIFICATION_MAX_SENDS_PER_HOUR", () => {
+    vi.stubEnv("VERIFICATION_RESEND_COOLDOWN_SECONDS", "300");
+    vi.stubEnv("VERIFICATION_MAX_SENDS_PER_HOUR", "3");
+    expect(nextSend({ lastSentAt: ago(120), sendCount: 1, sendWindowStart: ago(120) }, now))
+      .toEqual({ ok: false, retryAfter: 180 });
+    expect(nextSend({ lastSentAt: ago(400), sendCount: 3, sendWindowStart: ago(1000) }, now))
+      .toEqual({ ok: false, retryAfter: 2600 });
+  });
+});
+
+describe("invalidInput", () => {
+  it("accepts absent, null and non-empty string fields", () => {
+    expect(invalidInput({ a: "x", b: null }, ["a", "b", "c"])).toBeNull();
+  });
+
+  it("rejects objects, arrays, numbers and empty strings", () => {
+    expect(invalidInput({ a: { contains: "@" } }, ["a"])).toBe("a must be a non-empty string");
+    expect(invalidInput({ a: ["x"] }, ["a"])).toBe("a must be a non-empty string");
+    expect(invalidInput({ a: 1 }, ["a"])).toBe("a must be a non-empty string");
+    expect(invalidInput({ a: "" }, ["a"])).toBe("a must be a non-empty string");
+  });
+
+  it("allows an empty string where permitted", () => {
+    expect(invalidInput({ a: "" }, ["a"], ["a"])).toBeNull();
+    expect(invalidInput({ a: {} }, ["a"], ["a"])).toBe("a must be a non-empty string");
+  });
+
+  it("rejects a body that isn't a JSON object", () => {
+    for (const body of [null, [], "x", 1]) {
+      expect(invalidInput(body, ["a"])).toBe("Request body must be a JSON object");
+    }
   });
 });

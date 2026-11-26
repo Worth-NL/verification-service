@@ -74,7 +74,7 @@ CMD ["sh", "-c", "\
       echo 'Waiting for database...'; sleep 1; \
     done; \
     echo 'Database ready'; \
-    node dist/dbsetup.js; \
+    node dist/dbsetup.js && \
     exec node node_modules/next/dist/bin/next start \
 "]
 
@@ -94,6 +94,6 @@ CMD ["sh", "-c", "\
       echo 'Waiting for database...'; sleep 1; \
     done; \
     echo 'Database ready'; \
-    node dist/dbsetup.js; \
+    node dist/dbsetup.js && \
     exec node dist/cron-task.js \
 "]
