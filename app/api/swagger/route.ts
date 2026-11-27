@@ -38,7 +38,8 @@ export async function GET() {
                     },
                     reference: {
                       type: "string",
-                      description: "Optional reference ID (unique identifier)",
+                      description:
+                        "Optional reference ID (unique identifier). An empty string counts as no reference. A reference stays tied to the email address or phone number it was created with",
                     },
                     apiKey: {
                       type: "string",
@@ -64,7 +65,7 @@ export async function GET() {
           responses: {
             "200": {
               description:
-                "A verification request for this reference (or email/phone number when no reference is given) already existed; it was updated and a new code was sent",
+                "A verification request for this reference (or email/phone number when no reference is given) already existed and a new code was sent. The previous code no longer works, and the expiry and attempt count start over",
               content: {
                 "application/json": {
                   schema: { $ref: "#/components/schemas/SuccessResponse" },
@@ -73,7 +74,7 @@ export async function GET() {
             },
             "201": {
               description:
-                "Verification request created and the code was sent",
+                "Verification request created and the code was sent. The code is valid for 15 minutes by default (`VERIFICATION_CODE_TTL_MINUTES`)",
               content: {
                 "application/json": {
                   schema: { $ref: "#/components/schemas/SuccessResponse" },
@@ -82,12 +83,36 @@ export async function GET() {
             },
             "400": {
               description:
-                "Invalid input: both or neither of `email` and `phoneNumber` were given, no API key is available, or no template ID is available for the chosen channel",
+                "Invalid input: the body is not a JSON object, a supplied field is not a non-empty string (`reference` may be empty), both or neither of `email` and `phoneNumber` were given, no API key is available, or no template ID is available for the chosen channel",
               content: {
                 "application/json": {
                   schema: {
                     $ref: "#/components/schemas/ErrorResponse",
                   },
+                },
+              },
+            },
+            "409": {
+              description:
+                "Conflicts with an existing verification request: the reference is in use for a different email address or phone number, or the email address or phone number is in use under a different reference",
+              content: {
+                "application/json": {
+                  schema: { $ref: "#/components/schemas/ErrorResponse" },
+                },
+              },
+            },
+            "429": {
+              description:
+                "Too many codes requested for this email address or phone number. A code can be sent once every 60 seconds (`VERIFICATION_RESEND_COOLDOWN_SECONDS`) and at most 12 times per hour (`VERIFICATION_MAX_SENDS_PER_HOUR`). The `Retry-After` header gives the number of seconds to wait",
+              headers: {
+                "Retry-After": {
+                  description: "Seconds to wait before requesting a new code",
+                  schema: { type: "integer" },
+                },
+              },
+              content: {
+                "application/json": {
+                  schema: { $ref: "#/components/schemas/ErrorResponse" },
                 },
               },
             },
@@ -152,7 +177,7 @@ export async function GET() {
             },
             "400": {
               description:
-                "Invalid input or code. Missing `code`, or none of `reference`, `email` or `phoneNumber` given, returns an `ErrorResponse`; an incorrect code returns a `VerificationFailedResponse` with reason `Invalid code`",
+                "Invalid input or code. A body that is not a JSON object, a supplied field that is not a non-empty string (`reference` may be empty), a missing `code`, or none of `reference`, `email` or `phoneNumber` given, returns an `ErrorResponse`; an incorrect code returns a `VerificationFailedResponse` with reason `Invalid code`. Each request allows 5 incorrect codes by default (`VERIFICATION_MAX_ATTEMPTS`); after that the code no longer works and a new code has to be requested",
               content: {
                 "application/json": {
                   schema: {
@@ -166,7 +191,7 @@ export async function GET() {
             },
             "404": {
               description:
-                "Verification request not found; returns a `VerificationFailedResponse` with reason `Request not found`",
+                "No active verification request: it doesn't exist, the code has expired or was already used, or too many incorrect codes were entered. Returns a `VerificationFailedResponse` with reason `Request not found`",
               content: {
                 "application/json": {
                   schema: {
